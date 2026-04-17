@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Bird, History as HistoryIcon, Info, Mic, RefreshCw, Share2 } from 'lucide-react';
 import { BIRD_DATASET, DEFAULT_BIRD } from './constants/birds';
-import { analyzeBirdSound } from './services/api';
+import { analyzeBirdSound, checkServerHealth } from './services/api';
 import { BirdDetection } from './types';
 
 type AppState = 'idle' | 'recording' | 'analyzing' | 'result' | 'error';
+type HealthStatus = 'healthy' | 'unhealthy';
 
 export default function App() {
   const isDevelopment =
@@ -17,6 +18,7 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [location, setLocation] = useState<{ lat: number; lon: number }>({ lat: 39.9042, lon: 116.4074 });
+  const [healthStatus, setHealthStatus] = useState<HealthStatus>('unhealthy');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -25,6 +27,7 @@ export default function App() {
   const analysisAbortControllerRef = useRef<AbortController | null>(null);
   const analysisRunIdRef = useRef(0);
   const audioUrlRef = useRef<string | null>(null);
+  const healthCheckInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -45,6 +48,36 @@ export default function App() {
   useEffect(() => {
     audioUrlRef.current = audioUrl;
   }, [audioUrl]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const runHealthCheck = async () => {
+      if (healthCheckInFlightRef.current) {
+        return;
+      }
+
+      healthCheckInFlightRef.current = true;
+
+      try {
+        const isHealthy = await checkServerHealth();
+
+        if (isMounted) {
+          setHealthStatus(isHealthy ? 'healthy' : 'unhealthy');
+        }
+      } finally {
+        healthCheckInFlightRef.current = false;
+      }
+    };
+
+    runHealthCheck();
+    const intervalId = window.setInterval(runHealthCheck, 1000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -263,6 +296,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 md:p-8">
+      <div className="fixed right-4 top-4 z-50">
+        <div
+          className={`h-3.5 w-3.5 rounded-full border border-white/80 shadow-sm ${
+            healthStatus === 'healthy' ? 'bg-emerald-500' : 'bg-red-500'
+          }`}
+          title={healthStatus === 'healthy' ? 'Server healthy' : 'Server unhealthy'}
+          aria-label={healthStatus === 'healthy' ? 'Server healthy' : 'Server unhealthy'}
+        />
+      </div>
+
       <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-8 items-start justify-center">
         <div className={`hidden lg:flex flex-col gap-6 flex-1 max-w-lg ${state === 'result' ? '!flex' : ''}`}>
           <div className="mb-4">

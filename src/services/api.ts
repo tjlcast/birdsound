@@ -3,6 +3,10 @@ import { AnalyzeResponse } from '../types';
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
+interface HealthResponse {
+  status: string;
+}
+
 export async function analyzeBirdSound(
   audioBlob: Blob, 
   lat: number, 
@@ -28,5 +32,18 @@ export async function analyzeBirdSound(
   } catch (error) {
     console.error('API Error:', error);
     throw error;
+  }
+}
+
+export async function checkServerHealth(signal?: AbortSignal): Promise<boolean> {
+  try {
+    const response = await axios.get<HealthResponse>(`${API_BASE_URL}/health`, {
+      signal,
+    });
+
+    return response.data.status === 'ok';
+  } catch (error) {
+    console.error('Health Check Error:', error);
+    return false;
   }
 }
