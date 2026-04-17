@@ -8,11 +8,14 @@ import { BirdDetection, HistoryRecord } from './types';
 
 type AppState = 'idle' | 'recording' | 'analyzing' | 'result' | 'history' | 'error';
 type HealthStatus = 'healthy' | 'unhealthy';
+type BirdDisplayInfo = {
+  name: string;
+  scientificName: string;
+  description: string;
+  image: string;
+};
 
 export default function App() {
-  const isDevelopment =
-    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
   const [state, setState] = useState<AppState>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
   const [detections, setDetections] = useState<BirdDetection[]>([]);
@@ -95,7 +98,35 @@ export default function App() {
     };
   }, []);
 
-  const getBirdInfo = (species: string) => BIRD_DATASET[species] || DEFAULT_BIRD;
+  const getBirdInfo = (species: string | null | undefined) => (species ? BIRD_DATASET[species] || DEFAULT_BIRD : DEFAULT_BIRD);
+
+  const getDetectionDisplayInfo = (detection?: BirdDetection | null): BirdDisplayInfo => {
+    if (!detection) {
+      return {
+        name: DEFAULT_BIRD.nameCn,
+        scientificName: DEFAULT_BIRD.scientificName,
+        description: DEFAULT_BIRD.description,
+        image: DEFAULT_BIRD.image,
+      };
+    }
+
+    const fallback = getBirdInfo(detection.species);
+
+    return {
+      name: detection.common_name_zh || detection.common_name || fallback.nameCn,
+      scientificName: detection.scientific_name || fallback.scientificName,
+      description: detection.description || fallback.description,
+      image: detection.image_url || fallback.image,
+    };
+  };
+
+  const getResultMessage = (responseMessage?: string | null) => {
+    if (responseMessage?.trim()) {
+      return responseMessage;
+    }
+
+    return '服务端已完成分析，但没有返回可展示的鸟类结果。';
+  };
 
   const revokeAudioUrl = (url: string | null) => {
     if (url) {
@@ -187,7 +218,7 @@ export default function App() {
     cancelAnalyzeRequest();
     clearAudio();
     setDetections(record.detections);
-    setErrorMessage(null);
+    setErrorMessage(record.detections.length === 0 ? '这条历史记录没有可展示的识别结果。' : null);
     setRecordingTime(0);
     setState('result');
   };
@@ -304,6 +335,7 @@ export default function App() {
     const controller = new AbortController();
     analysisAbortControllerRef.current = controller;
 
+    setErrorMessage(null);
     setState('analyzing');
 
     try {
@@ -318,6 +350,7 @@ export default function App() {
       }
 
       setDetections(response.detections);
+      setErrorMessage(response.detections.length === 0 ? getResultMessage(response.message) : null);
       persistHistoryRecord(response.detections);
       setState('result');
     } catch (err) {
@@ -326,34 +359,9 @@ export default function App() {
       }
 
       console.error('Analysis failed:', err);
-
-      if (isDevelopment) {
-        const mockDetections: BirdDetection[] = [
-          {
-            scientific_name: 'Pycnonotus sinensis',
-            common_name: 'Light-vented Bulbul',
-            species: 'pycsin1',
-            confidence: 0.876,
-            start_seconds: 0,
-            end_seconds: 5,
-          },
-          {
-            scientific_name: 'Eophona migratoria',
-            common_name: 'Chinese Grosbeak',
-            species: 'chigro1',
-            confidence: 0.124,
-            start_seconds: 0,
-            end_seconds: 5,
-          },
-        ];
-
-        setDetections(mockDetections);
-        persistHistoryRecord(mockDetections);
-        setState('result');
-      } else {
-        setErrorMessage('识别失败，请检查网络或后端服务。');
-        setState('error');
-      }
+      setDetections([]);
+      setErrorMessage(err instanceof Error ? err.message : '识别失败，请检查网络或后端服务。');
+      setState('error');
     } finally {
       if (analysisAbortControllerRef.current === controller) {
         analysisAbortControllerRef.current = null;
@@ -393,7 +401,54 @@ export default function App() {
   const historySummary = {
     count: historyRecords.length,
     latestBird:
-      historyRecords[0]?.detections[0] ? getBirdInfo(historyRecords[0].detections[0].species).nameCn : '暂无',
+      historyRecords[0]?.detections[0] ? getDetectionDisplayInfo(historyRecords[0].detections[0]).name : '暂无',
+  };
+
+  const renderResultList = () => {
+    if (detections.length === 0) {
+      return (
+        <div className="glass-card p-6 rounded-3xl text-sm text-secondary-text">
+          {errorMessage || '当前没有可展示的识别结果。'}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4 w-full">
+        {detections.map((det, idx) => {
+          const info = getDetectionDisplayInfo(det);
+
+          return (
+            <motion.div
+              key={`${det.species}-${idx}`}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: idx * 0.1 }}
+              className={`glass-card p-6 rounded-3xl flex gap-4 ${idx > 0 ? 'opacity-80' : ''}`}
+            >
+              <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center text-3xl shadow-sm overflow-hidden shrink-0">
+                <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xl font-bold text-primary-text truncate">{info.name}</div>
+                <div className="text-xs italic text-secondary-text mb-3 truncate">{info.scientificName}</div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-1.5 bg-black/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-accent-green transition-all duration-1000"
+                      style={{ width: `${det.confidence * 100}%` }}
+                    />
+                  </div>
+                  <div className="text-xs font-bold text-accent-green w-10 text-right">
+                    {Math.round(det.confidence * 100)}%
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -477,7 +532,7 @@ export default function App() {
               ) : (
                 historyRecords.map((record) => {
                   const topDetection = record.detections[0];
-                  const info = topDetection ? getBirdInfo(topDetection.species) : DEFAULT_BIRD;
+                  const info = getDetectionDisplayInfo(topDetection);
 
                   return (
                     <button
@@ -491,7 +546,7 @@ export default function App() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-3 mb-2">
-                            <div className="text-lg font-bold text-primary-text truncate">{info.nameCn}</div>
+                            <div className="text-lg font-bold text-primary-text truncate">{info.name}</div>
                             <div className="text-[11px] text-secondary-text whitespace-nowrap">
                               {formatHistoryDate(record.createdAt)}
                             </div>
@@ -519,42 +574,7 @@ export default function App() {
             </div>
           )}
 
-          {state === 'result' && detections.length > 0 && (
-            <div className="space-y-4 w-full">
-              {detections.map((det, idx) => {
-                const info = getBirdInfo(det.species);
-
-                return (
-                  <motion.div
-                    key={`${det.species}-${idx}`}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                    className={`glass-card p-6 rounded-3xl flex gap-4 ${idx > 0 ? 'opacity-80' : ''}`}
-                  >
-                    <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center text-3xl shadow-sm overflow-hidden shrink-0">
-                      <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xl font-bold text-primary-text truncate">{info.nameCn}</div>
-                      <div className="text-xs italic text-secondary-text mb-3 truncate">{info.scientificName}</div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-1.5 bg-black/5 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-accent-green transition-all duration-1000"
-                            style={{ width: `${det.confidence * 100}%` }}
-                          />
-                        </div>
-                        <div className="text-xs font-bold text-accent-green w-10 text-right">
-                          {Math.round(det.confidence * 100)}%
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
+          {state === 'result' && renderResultList()}
         </div>
 
         <div
@@ -661,7 +681,7 @@ export default function App() {
                     ) : (
                       historyRecords.map((record) => {
                         const topDetection = record.detections[0];
-                        const info = topDetection ? getBirdInfo(topDetection.species) : DEFAULT_BIRD;
+                        const info = getDetectionDisplayInfo(topDetection);
 
                         return (
                           <button
@@ -671,14 +691,10 @@ export default function App() {
                           >
                             <div className="flex items-center gap-3">
                               <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0">
-                                <img
-                                  src={info.image}
-                                  className="w-full h-full object-cover"
-                                  referrerPolicy="no-referrer"
-                                />
+                                <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-bold text-primary-text truncate">{info.nameCn}</div>
+                                <div className="text-sm font-bold text-primary-text truncate">{info.name}</div>
                                 <div className="text-[10px] text-secondary-text truncate">
                                   {formatHistoryDate(record.createdAt)}
                                 </div>
@@ -806,27 +822,35 @@ export default function App() {
                     <span className="text-sm font-bold text-primary-text">识别结果</span>
                   </div>
 
-                  {detections.length > 0 && (
+                  {detections.length > 0 ? (
                     <div className="bg-white/60 rounded-3xl p-5 border border-white/40 mb-6">
-                      <div className="flex gap-4 mb-6">
-                        <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-sm">
-                          <img
-                            src={getBirdInfo(detections[0].species).image}
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                        <div>
-                          <div className="font-bold text-primary-text">{getBirdInfo(detections[0].species).nameCn}</div>
-                          <div className="text-[10px] text-secondary-text italic">{detections[0].scientific_name}</div>
-                          <div className="mt-2 text-xs font-bold text-accent-green">
-                            置信度 {Math.round(detections[0].confidence * 100)}%
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-secondary-text leading-relaxed line-clamp-3">
-                        {getBirdInfo(detections[0].species).description}
-                      </p>
+                      {(() => {
+                        const topInfo = getDetectionDisplayInfo(detections[0]);
+
+                        return (
+                          <>
+                            <div className="flex gap-4 mb-6">
+                              <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-sm">
+                                <img src={topInfo.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              </div>
+                              <div>
+                                <div className="font-bold text-primary-text">{topInfo.name}</div>
+                                <div className="text-[10px] text-secondary-text italic">{topInfo.scientificName}</div>
+                                <div className="mt-2 text-xs font-bold text-accent-green">
+                                  置信度 {Math.round(detections[0].confidence * 100)}%
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-secondary-text leading-relaxed line-clamp-3">
+                              {topInfo.description}
+                            </p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="bg-white/60 rounded-3xl p-5 border border-white/40 mb-6 text-sm text-secondary-text">
+                      {errorMessage || '当前没有可展示的识别结果。'}
                     </div>
                   )}
 
@@ -857,7 +881,7 @@ export default function App() {
 
         <div className={`lg:hidden flex flex-col gap-4 mt-8 w-full ${state !== 'result' ? 'hidden' : ''}`}>
           {detections.map((det, idx) => {
-            const info = getBirdInfo(det.species);
+            const info = getDetectionDisplayInfo(det);
 
             return (
               <div key={`${det.species}-${idx}`} className="glass-card p-5 rounded-3xl flex gap-4">
@@ -865,7 +889,7 @@ export default function App() {
                   <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-bold text-primary-text">{info.nameCn}</div>
+                  <div className="font-bold text-primary-text">{info.name}</div>
                   <div className="text-[10px] text-secondary-text mb-2 italic">{info.scientificName}</div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1 bg-black/5 rounded-full overflow-hidden">
@@ -877,6 +901,11 @@ export default function App() {
               </div>
             );
           })}
+          {detections.length === 0 && (
+            <div className="glass-card p-5 rounded-3xl text-sm text-secondary-text">
+              {errorMessage || '当前没有可展示的识别结果。'}
+            </div>
+          )}
         </div>
       </div>
 

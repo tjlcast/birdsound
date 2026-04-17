@@ -1,10 +1,13 @@
 export interface BirdDetection {
   scientific_name: string;
   common_name: string;
-  species: string;
+  species: string | null;
   confidence: number;
   start_seconds: number;
   end_seconds: number;
+  common_name_zh?: string;
+  description?: string;
+  image_url?: string;
 }
 
 export interface AnalyzeResponse {

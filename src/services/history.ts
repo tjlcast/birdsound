@@ -13,7 +13,7 @@ function isBirdDetection(value: unknown): value is BirdDetection {
   return (
     typeof candidate.scientific_name === 'string' &&
     typeof candidate.common_name === 'string' &&
-    typeof candidate.species === 'string' &&
+    (typeof candidate.species === 'string' || candidate.species === null) &&
     typeof candidate.confidence === 'number' &&
     typeof candidate.start_seconds === 'number' &&
     typeof candidate.end_seconds === 'number'
