@@ -1,0 +1,9 @@
+{
+  "name": "闻啼鸟",
+  "description": "智能鸟声识别APP。录制鸟叫，AI实时分析品种与置信度，带你走进鸟类的奇妙世界。",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}

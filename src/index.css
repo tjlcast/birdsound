@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "PingFang SC", "Helvetica Neue", sans-serif;
+  
+  --color-primary-text: #2d3436;
+  --color-secondary-text: #636e72;
+  --color-accent-green: #4db6ac;
+  --color-accent-yellow: #ffd54f;
+  --color-glass-bg: rgba(255, 255, 255, 0.4);
+  --color-glass-border: rgba(255, 255, 255, 0.5);
+}
+
+@layer base {
+  body {
+    @apply text-primary-text font-sans overflow-x-hidden min-h-screen;
+    background-color: #e0f2f1;
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(77, 182, 172, 0.2) 0, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(255, 213, 79, 0.2) 0, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(129, 199, 132, 0.2) 0, transparent 50%);
+  }
+}
+
+.glass-panel {
+  @apply bg-glass-bg border border-glass-border;
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+}
+
+.glass-card {
+  @apply bg-glass-bg border border-glass-border shadow-sm;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.mask-oval {
+  clip-path: ellipse(50% 50% at 50% 50%);
+}
+
