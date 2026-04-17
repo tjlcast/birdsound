@@ -404,47 +404,120 @@ export default function App() {
       historyRecords[0]?.detections[0] ? getDetectionDisplayInfo(historyRecords[0].detections[0]).name : '暂无',
   };
 
-  const renderResultList = () => {
+  const renderResultList = (compact = false) => {
     if (detections.length === 0) {
       return (
-        <div className="glass-card p-6 rounded-3xl text-sm text-secondary-text">
+        <div className={`glass-card rounded-3xl text-sm text-secondary-text ${compact ? 'p-5' : 'p-6'}`}>
           {errorMessage || '当前没有可展示的识别结果。'}
         </div>
       );
     }
 
     return (
-      <div className="space-y-4 w-full">
+      <div className={`w-full ${compact ? 'space-y-3' : 'space-y-4'}`}>
         {detections.map((det, idx) => {
           const info = getDetectionDisplayInfo(det);
 
           return (
             <motion.div
               key={`${det.species}-${idx}`}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, x: compact ? 0 : -20, y: compact ? 12 : 0 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
               transition={{ delay: idx * 0.1 }}
-              className={`glass-card p-6 rounded-3xl flex gap-4 ${idx > 0 ? 'opacity-80' : ''}`}
+              className={`glass-card rounded-3xl flex ${compact ? 'gap-3 p-4' : 'gap-4 p-6'} ${idx > 0 ? 'opacity-80' : ''}`}
             >
-              <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center text-3xl shadow-sm overflow-hidden shrink-0">
+              <div className={`${compact ? 'w-16 h-16' : 'w-20 h-20'} bg-white rounded-2xl flex items-center justify-center text-3xl shadow-sm overflow-hidden shrink-0`}>
                 <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xl font-bold text-primary-text truncate">{info.name}</div>
-                <div className="text-xs italic text-secondary-text mb-3 truncate">{info.scientificName}</div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-1.5 bg-black/5 rounded-full overflow-hidden">
+                <div className={`${compact ? 'text-base' : 'text-xl'} font-bold text-primary-text truncate`}>{info.name}</div>
+                <div className={`${compact ? 'text-[10px] mb-2' : 'text-xs mb-3'} italic text-secondary-text truncate`}>{info.scientificName}</div>
+                <div className={`flex items-center ${compact ? 'gap-2' : 'gap-3'}`}>
+                  <div className={`flex-1 bg-black/5 rounded-full overflow-hidden ${compact ? 'h-1' : 'h-1.5'}`}>
                     <div
                       className="h-full bg-accent-green transition-all duration-1000"
                       style={{ width: `${det.confidence * 100}%` }}
                     />
                   </div>
-                  <div className="text-xs font-bold text-accent-green w-10 text-right">
+                  <div className={`${compact ? 'text-[10px] w-9' : 'text-xs w-10'} font-bold text-accent-green text-right`}>
                     {Math.round(det.confidence * 100)}%
                   </div>
                 </div>
               </div>
             </motion.div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderHistoryList = (compact = false) => {
+    if (historyRecords.length === 0) {
+      return (
+        <div
+          className={`rounded-3xl border border-white/40 text-sm text-secondary-text ${
+            compact ? 'bg-white/55 p-5' : 'glass-card p-6'
+          }`}
+        >
+          褰撳墠娌℃湁鍙煡鐪嬬殑鍘嗗彶缁撴灉銆?
+        </div>
+      );
+    }
+
+    return (
+      <div className={`w-full ${compact ? 'space-y-3' : 'space-y-4'}`}>
+        {historyRecords.map((record) => {
+          const topDetection = record.detections[0];
+          const info = getDetectionDisplayInfo(topDetection);
+
+          return (
+            <button
+              key={record.id}
+              onClick={() => openHistoryRecord(record)}
+              className={`w-full rounded-3xl border border-white/40 text-left transition-transform ${
+                compact ? 'bg-white/55 p-4' : 'glass-card p-5 hover:-translate-y-0.5'
+              }`}
+            >
+              <div className={`flex ${compact ? 'items-center gap-3' : 'items-start gap-4'}`}>
+                <div className={`${compact ? 'w-14 h-14' : 'w-20 h-20'} rounded-2xl overflow-hidden shrink-0 shadow-sm bg-white`}>
+                  <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  {compact ? (
+                    <>
+                      <div className="text-sm font-bold text-primary-text truncate">{info.name}</div>
+                      <div className="text-[10px] text-secondary-text truncate">{formatHistoryDate(record.createdAt)}</div>
+                      <div className="text-[10px] text-accent-green mt-1">
+                        {topDetection ? Math.round(topDetection.confidence * 100) : 0}% 缃俊搴?
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="text-lg font-bold text-primary-text truncate">{info.name}</div>
+                        <div className="text-[11px] text-secondary-text whitespace-nowrap">
+                          {formatHistoryDate(record.createdAt)}
+                        </div>
+                      </div>
+                      <div className="text-xs italic text-secondary-text truncate mb-3">
+                        {topDetection?.scientific_name || '鏆傛棤璇嗗埆缁撴灉'}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-secondary-text">
+                        <span className="rounded-full bg-white/70 px-2.5 py-1">
+                          鏈€楂樼疆淇″害 {topDetection ? Math.round(topDetection.confidence * 100) : 0}%
+                        </span>
+                        <span className="rounded-full bg-white/70 px-2.5 py-1">
+                          鍏?{record.detections.length} 椤圭粨鏋?
+                        </span>
+                        <span className="rounded-full bg-white/70 px-2.5 py-1">
+                          {record.lat.toFixed(1)}N {record.lon.toFixed(1)}E
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </button>
           );
         })}
       </div>
@@ -464,7 +537,7 @@ export default function App() {
       </div>
 
       <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-8 items-start justify-center">
-        <div className={`hidden lg:flex flex-col gap-6 flex-1 max-w-lg ${state === 'result' || state === 'history' ? '!flex' : ''}`}>
+        <div className={`hidden lg:flex flex-col gap-6 flex-1 max-w-lg ${state === 'result' ? '!flex' : ''}`}>
           <div className="mb-4">
             {state === 'result' && (
               <button
@@ -523,7 +596,7 @@ export default function App() {
             )}
           </div>
 
-          {state === 'history' && (
+          {state === 'history' && renderHistoryList()}{/*
             <div className="space-y-4 w-full">
               {historyRecords.length === 0 ? (
                 <div className="glass-card p-6 rounded-3xl text-sm text-secondary-text">
@@ -572,7 +645,7 @@ export default function App() {
                 })
               )}
             </div>
-          )}
+          )*/}
 
           {state === 'result' && renderResultList()}
         </div>
@@ -673,7 +746,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                  <div className="flex-1 overflow-y-auto pr-1">{renderHistoryList(true)}{/*
                     {historyRecords.length === 0 ? (
                       <div className="rounded-3xl bg-white/55 border border-white/40 p-5 text-sm text-secondary-text">
                         当前没有可查看的历史结果。
@@ -707,7 +780,7 @@ export default function App() {
                         );
                       })
                     )}
-                  </div>
+                  */}</div>
 
                   <div className="mt-4 space-y-3">
                     <button
@@ -822,20 +895,24 @@ export default function App() {
                     <span className="text-sm font-bold text-primary-text">识别结果</span>
                   </div>
 
-                  {detections.length > 0 ? (
-                    <div className="bg-white/60 rounded-3xl p-5 border border-white/40 mb-6">
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+                    {detections.length > 0 && (
+                      <div className="bg-white/60 rounded-3xl p-5 border border-white/40">
                       {(() => {
                         const topInfo = getDetectionDisplayInfo(detections[0]);
 
                         return (
                           <>
-                            <div className="flex gap-4 mb-6">
-                              <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-sm">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-secondary-text/70 mb-3">
+                              Top Match
+                            </div>
+                            <div className="flex gap-4 mb-4">
+                              <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-sm shrink-0">
                                 <img src={topInfo.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               </div>
-                              <div>
-                                <div className="font-bold text-primary-text">{topInfo.name}</div>
-                                <div className="text-[10px] text-secondary-text italic">{topInfo.scientificName}</div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-primary-text truncate">{topInfo.name}</div>
+                                <div className="text-[10px] text-secondary-text italic truncate">{topInfo.scientificName}</div>
                                 <div className="mt-2 text-xs font-bold text-accent-green">
                                   置信度 {Math.round(detections[0].confidence * 100)}%
                                 </div>
@@ -847,12 +924,10 @@ export default function App() {
                           </>
                         );
                       })()}
-                    </div>
-                  ) : (
-                    <div className="bg-white/60 rounded-3xl p-5 border border-white/40 mb-6 text-sm text-secondary-text">
-                      {errorMessage || '当前没有可展示的识别结果。'}
-                    </div>
-                  )}
+                      </div>
+                    )}
+                    {renderResultList(true)}
+                  </div>
 
                   <div className="mt-auto space-y-3">
                     <button
@@ -879,34 +954,6 @@ export default function App() {
           </div>
         </div>
 
-        <div className={`lg:hidden flex flex-col gap-4 mt-8 w-full ${state !== 'result' ? 'hidden' : ''}`}>
-          {detections.map((det, idx) => {
-            const info = getDetectionDisplayInfo(det);
-
-            return (
-              <div key={`${det.species}-${idx}`} className="glass-card p-5 rounded-3xl flex gap-4">
-                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-2xl shrink-0 overflow-hidden">
-                  <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-bold text-primary-text">{info.name}</div>
-                  <div className="text-[10px] text-secondary-text mb-2 italic">{info.scientificName}</div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1 bg-black/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-accent-green" style={{ width: `${det.confidence * 100}%` }} />
-                    </div>
-                    <span className="text-[10px] font-bold text-accent-green">{Math.round(det.confidence * 100)}%</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {detections.length === 0 && (
-            <div className="glass-card p-5 rounded-3xl text-sm text-secondary-text">
-              {errorMessage || '当前没有可展示的识别结果。'}
-            </div>
-          )}
-        </div>
       </div>
 
       {state === 'error' && (
