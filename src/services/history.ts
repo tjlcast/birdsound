@@ -32,9 +32,38 @@ function isHistoryRecord(value: unknown): value is HistoryRecord {
     typeof candidate.createdAt === 'string' &&
     typeof candidate.lat === 'number' &&
     typeof candidate.lon === 'number' &&
+    typeof candidate.analysisDurationMs === 'number' &&
     Array.isArray(candidate.detections) &&
     candidate.detections.every(isBirdDetection)
   );
+}
+
+function normalizeHistoryRecord(value: unknown): HistoryRecord | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+
+  if (
+    typeof candidate.id !== 'string' ||
+    typeof candidate.createdAt !== 'string' ||
+    typeof candidate.lat !== 'number' ||
+    typeof candidate.lon !== 'number' ||
+    !Array.isArray(candidate.detections) ||
+    !candidate.detections.every(isBirdDetection)
+  ) {
+    return null;
+  }
+
+  return {
+    id: candidate.id,
+    createdAt: candidate.createdAt,
+    lat: candidate.lat,
+    lon: candidate.lon,
+    analysisDurationMs: typeof candidate.analysisDurationMs === 'number' ? candidate.analysisDurationMs : 0,
+    detections: candidate.detections,
+  };
 }
 
 export function loadHistoryRecords(): HistoryRecord[] {
@@ -49,7 +78,9 @@ export function loadHistoryRecords(): HistoryRecord[] {
       return [];
     }
 
-    return parsed.filter(isHistoryRecord);
+    return parsed
+      .map(normalizeHistoryRecord)
+      .filter((record): record is HistoryRecord => record !== null && isHistoryRecord(record));
   } catch (error) {
     console.warn('Failed to load history records:', error);
     return [];

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Bird, History as HistoryIcon, Info, Mic, RefreshCw, Share2, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Bird, Clock3, History as HistoryIcon, Info, MapPin, Mic, RefreshCw, Share2, Trash2, Upload } from 'lucide-react';
 import { BIRD_DATASET, DEFAULT_BIRD } from './constants/birds';
 import { analyzeBirdSound, checkServerHealth } from './services/api';
 import { clearHistoryRecords, loadHistoryRecords, saveHistoryRecord } from './services/history';
-import { BirdDetection, HistoryRecord } from './types';
+import { AnalysisDetails, BirdDetection, HistoryRecord } from './types';
 
 type AppState = 'idle' | 'recording' | 'analyzing' | 'result' | 'history' | 'error';
 type HealthStatus = 'healthy' | 'unhealthy';
@@ -25,6 +25,7 @@ export default function App() {
   const [location, setLocation] = useState<{ lat: number; lon: number }>({ lat: 39.9042, lon: 116.4074 });
   const [healthStatus, setHealthStatus] = useState<HealthStatus>('unhealthy');
   const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
+  const [analysisDetails, setAnalysisDetails] = useState<AnalysisDetails | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -178,14 +179,11 @@ export default function App() {
     }
   };
 
-  const persistHistoryRecord = (nextDetections: BirdDetection[]) => {
-    if (nextDetections.length === 0) {
-      return;
-    }
-
+  const persistHistoryRecord = (nextDetections: BirdDetection[], details: AnalysisDetails) => {
     const record = saveHistoryRecord({
-      lat: location.lat,
-      lon: location.lon,
+      lat: details.lat,
+      lon: details.lon,
+      analysisDurationMs: details.analysisDurationMs,
       detections: nextDetections,
     });
 
@@ -200,6 +198,7 @@ export default function App() {
     setDetections([]);
     setErrorMessage(null);
     setRecordingTime(0);
+    setAnalysisDetails(null);
   };
 
   const openHistoryPage = () => {
@@ -209,6 +208,7 @@ export default function App() {
     setDetections([]);
     setErrorMessage(null);
     setRecordingTime(0);
+    setAnalysisDetails(null);
     setHistoryRecords(loadHistoryRecords());
     setState('history');
   };
@@ -218,6 +218,12 @@ export default function App() {
     cancelAnalyzeRequest();
     clearAudio();
     setDetections(record.detections);
+    setAnalysisDetails({
+      lat: record.lat,
+      lon: record.lon,
+      analysisDurationMs: record.analysisDurationMs,
+      createdAt: record.createdAt,
+    });
     setErrorMessage(record.detections.length === 0 ? '这条历史记录没有可展示的识别结果。' : null);
     setRecordingTime(0);
     setState('result');
@@ -331,11 +337,17 @@ export default function App() {
   const handleAnalyze = async (blob: Blob) => {
     const runId = analysisRunIdRef.current + 1;
     analysisRunIdRef.current = runId;
+    const startedAt = Date.now();
+    const analysisLocation = {
+      lat: location.lat,
+      lon: location.lon,
+    };
 
     const controller = new AbortController();
     analysisAbortControllerRef.current = controller;
 
     setErrorMessage(null);
+    setAnalysisDetails(null);
     setState('analyzing');
 
     try {
@@ -344,14 +356,20 @@ export default function App() {
         return;
       }
 
-      const response = await analyzeBirdSound(blob, location.lat, location.lon, controller.signal);
+      const response = await analyzeBirdSound(blob, analysisLocation.lat, analysisLocation.lon, controller.signal);
       if (analysisRunIdRef.current !== runId) {
         return;
       }
 
+      const nextAnalysisDetails: AnalysisDetails = {
+        ...analysisLocation,
+        analysisDurationMs: Date.now() - startedAt,
+      };
+
       setDetections(response.detections);
       setErrorMessage(response.detections.length === 0 ? getResultMessage(response.message) : null);
-      persistHistoryRecord(response.detections);
+      setAnalysisDetails(nextAnalysisDetails);
+      persistHistoryRecord(response.detections, nextAnalysisDetails);
       setState('result');
     } catch (err) {
       if (analysisRunIdRef.current !== runId || controller.signal.aborted) {
@@ -360,6 +378,7 @@ export default function App() {
 
       console.error('Analysis failed:', err);
       setDetections([]);
+      setAnalysisDetails(null);
       setErrorMessage(err instanceof Error ? err.message : '识别失败，请检查网络或后端服务。');
       setState('error');
     } finally {
@@ -378,6 +397,7 @@ export default function App() {
     clearAudio();
     setDetections([]);
     setErrorMessage(null);
+    setAnalysisDetails(null);
     setState('idle');
   };
 
@@ -396,6 +416,47 @@ export default function App() {
       hour: '2-digit',
       minute: '2-digit',
     }).format(date);
+  };
+
+  const formatCoordinates = (lat: number, lon: number) => `${lat.toFixed(4)}N ${lon.toFixed(4)}E`;
+
+  const formatDuration = (durationMs: number) => {
+    if (durationMs < 1000) {
+      return `${durationMs} ms`;
+    }
+
+    return `${(durationMs / 1000).toFixed(durationMs >= 10000 ? 0 : 1)} s`;
+  };
+
+  const renderAnalysisDetails = (compact = false) => {
+    if (!analysisDetails) {
+      return null;
+    }
+
+    return (
+      <div className={`rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'glass-card p-5'}`}>
+        <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          <div className="rounded-2xl bg-white/75 p-3">
+            <div className="mb-1 flex items-center gap-2 text-[11px] text-secondary-text">
+              <MapPin className="h-3.5 w-3.5" />
+              分析位置
+            </div>
+            <div className={`${compact ? 'text-xs' : 'text-sm'} font-semibold text-primary-text break-all`}>
+              {formatCoordinates(analysisDetails.lat, analysisDetails.lon)}
+            </div>
+          </div>
+          <div className="rounded-2xl bg-white/75 p-3">
+            <div className="mb-1 flex items-center gap-2 text-[11px] text-secondary-text">
+              <Clock3 className="h-3.5 w-3.5" />
+              分析耗时
+            </div>
+            <div className={`${compact ? 'text-xs' : 'text-sm'} font-semibold text-primary-text`}>
+              {formatDuration(analysisDetails.analysisDurationMs)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const historySummary = {
@@ -490,6 +551,9 @@ export default function App() {
                       <div className="text-[10px] text-accent-green mt-1">
                         {topDetection ? Math.round(topDetection.confidence * 100) : 0}% 缃俊搴?
                       </div>
+                      <div className="text-[10px] text-secondary-text truncate">
+                        {formatCoordinates(record.lat, record.lon)} · {formatDuration(record.analysisDurationMs)}
+                      </div>
                     </>
                   ) : (
                     <>
@@ -510,7 +574,10 @@ export default function App() {
                           鍏?{record.detections.length} 椤圭粨鏋?
                         </span>
                         <span className="rounded-full bg-white/70 px-2.5 py-1">
-                          {record.lat.toFixed(1)}N {record.lon.toFixed(1)}E
+                          {formatCoordinates(record.lat, record.lon)}
+                        </span>
+                        <span className="rounded-full bg-white/70 px-2.5 py-1">
+                          {formatDuration(record.analysisDurationMs)}
                         </span>
                       </div>
                     </>
@@ -647,7 +714,12 @@ export default function App() {
             </div>
           )*/}
 
-          {state === 'result' && renderResultList()}
+          {state === 'result' && (
+            <div className="space-y-4">
+              {renderAnalysisDetails()}
+              {renderResultList()}
+            </div>
+          )}
         </div>
 
         <div
@@ -896,6 +968,7 @@ export default function App() {
                   </div>
 
                   <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+                    {renderAnalysisDetails(true)}
                     {detections.length > 0 && (
                       <div className="bg-white/60 rounded-3xl p-5 border border-white/40">
                       {(() => {

@@ -20,7 +20,15 @@ export interface HistoryRecord {
   createdAt: string;
   lat: number;
   lon: number;
+  analysisDurationMs: number;
   detections: BirdDetection[];
+}
+
+export interface AnalysisDetails {
+  lat: number;
+  lon: number;
+  analysisDurationMs: number;
+  createdAt?: string;
 }
 
 export interface BirdInfo {
