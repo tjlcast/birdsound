@@ -6,7 +6,8 @@ const API_BASE_URL = 'http://127.0.0.1:8000';
 export async function analyzeBirdSound(
   audioBlob: Blob, 
   lat: number, 
-  lon: number
+  lon: number,
+  signal?: AbortSignal
 ): Promise<AnalyzeResponse> {
   const formData = new FormData();
   // Create a file from the blob
@@ -21,6 +22,7 @@ export async function analyzeBirdSound(
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      signal,
     });
     return response.data;
   } catch (error) {
