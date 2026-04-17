@@ -12,6 +12,14 @@ export interface AnalyzeResponse {
   detections: BirdDetection[];
 }
 
+export interface HistoryRecord {
+  id: string;
+  createdAt: string;
+  lat: number;
+  lon: number;
+  detections: BirdDetection[];
+}
+
 export interface BirdInfo {
   id: string; // matches species from API
   nameCn: string;
