@@ -564,14 +564,14 @@ export default function App() {
                         </div>
                       </div>
                       <div className="text-xs italic text-secondary-text truncate mb-3">
-                        {topDetection?.scientific_name || '鏆傛棤璇嗗埆缁撴灉'}
+                        {topDetection?.scientific_name || '����ʶ����'}
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-secondary-text">
                         <span className="rounded-full bg-white/70 px-2.5 py-1">
                           鏈€楂樼疆淇″害 {topDetection ? Math.round(topDetection.confidence * 100) : 0}%
                         </span>
                         <span className="rounded-full bg-white/70 px-2.5 py-1">
-                          鍏?{record.detections.length} 椤圭粨鏋?
+                          �?{record.detections.length} 椤圭粨鏋?
                         </span>
                         <span className="rounded-full bg-white/70 px-2.5 py-1">
                           {formatCoordinates(record.lat, record.lon)}
@@ -603,8 +603,8 @@ export default function App() {
         />
       </div>
 
-      <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-8 items-start justify-center">
-        <div className={`hidden lg:flex flex-col gap-6 flex-1 max-w-lg ${state === 'result' ? '!flex' : ''}`}>
+      <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-8 items-start lg:items-stretch justify-center">
+        <div className={`hidden lg:flex flex-col gap-6 flex-1 max-w-lg lg:min-h-[640px] lg:self-stretch ${state === 'result' ? '!flex' : ''}`}>
           <div className="mb-4">
             {state === 'result' && (
               <button
@@ -663,7 +663,27 @@ export default function App() {
             )}
           </div>
 
-          {state === 'history' && renderHistoryList()}{/*
+          {state === 'history' && (
+            <div className="history-scroll glass-panel flex min-h-0 flex-1 flex-col overflow-y-auto rounded-[32px] p-5 pr-3">
+              <div className="shrink-0 rounded-3xl bg-white/60 border border-white/40 p-5 mb-4">
+                <div className="text-xs text-secondary-text mb-2">��Ҫ</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl bg-white/75 p-3">
+                    <div className="text-[11px] text-secondary-text">��¼����</div>
+                    <div className="text-2xl font-bold text-primary-text">{historySummary.count}</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/75 p-3">
+                    <div className="text-[11px] text-secondary-text">���ʶ��</div>
+                    <div className="text-sm font-bold text-primary-text truncate">{historySummary.latestBird}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pb-3">
+                {renderHistoryList()}
+              </div>
+            </div>
+          )}{/*
             <div className="space-y-4 w-full">
               {historyRecords.length === 0 ? (
                 <div className="glass-card p-6 rounded-3xl text-sm text-secondary-text">
@@ -734,7 +754,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col z-10">
+          <div className="flex-1 min-h-0 flex flex-col z-10">
             <AnimatePresence mode="wait">
               {state === 'idle' && (
                 <motion.div
@@ -795,8 +815,9 @@ export default function App() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="flex-1 flex flex-col"
+                  className="history-scroll history-mobile-shell flex-1 min-h-0 overflow-y-auto flex flex-col pr-1"
                 >
+                  <div className="shrink-0">
                   <div className="mb-6 flex items-center gap-2">
                     <button onClick={resetApp} className="p-1.5 bg-black/5 rounded-lg text-secondary-text">
                       <ArrowLeft className="w-4 h-4" />
@@ -817,12 +838,12 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                  </div>
 
-                  <div className="flex-1 overflow-y-auto pr-1">{renderHistoryList(true)}{/*
+                  <div className="pb-4">{renderHistoryList(true)}{/*
                     {historyRecords.length === 0 ? (
                       <div className="rounded-3xl bg-white/55 border border-white/40 p-5 text-sm text-secondary-text">
-                        当前没有可查看的历史结果。
-                      </div>
+                        当前没有可查看的历史结果�?                      </div>
                     ) : (
                       historyRecords.map((record) => {
                         const topDetection = record.detections[0];
@@ -844,8 +865,7 @@ export default function App() {
                                   {formatHistoryDate(record.createdAt)}
                                 </div>
                                 <div className="text-[10px] text-accent-green mt-1">
-                                  {topDetection ? Math.round(topDetection.confidence * 100) : 0}% 置信度
-                                </div>
+                                  {topDetection ? Math.round(topDetection.confidence * 100) : 0}% 置信�?                                </div>
                               </div>
                             </div>
                           </button>
@@ -854,7 +874,7 @@ export default function App() {
                     )}
                   */}</div>
 
-                  <div className="mt-4 space-y-3">
+                  <div className="history-footer-mobile shrink-0 border-t border-black/5 pt-4 mt-3 space-y-3">
                     <button
                       onClick={resetApp}
                       className="w-full py-3.5 bg-accent-green text-white rounded-2xl font-bold shadow-lg shadow-accent-green/20"
@@ -1046,3 +1066,4 @@ export default function App() {
     </div>
   );
 }
+
