@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Bird, History as HistoryIcon, Info, Mic, RefreshCw, Share2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bird, History as HistoryIcon, Info, Mic, RefreshCw, Share2, Trash2, Upload } from 'lucide-react';
 import { BIRD_DATASET, DEFAULT_BIRD } from './constants/birds';
 import { analyzeBirdSound, checkServerHealth } from './services/api';
 import { clearHistoryRecords, loadHistoryRecords, saveHistoryRecord } from './services/history';
@@ -18,6 +18,7 @@ export default function App() {
   const [detections, setDetections] = useState<BirdDetection[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioFileName, setAudioFileName] = useState('preview.mp3');
   const [location, setLocation] = useState<{ lat: number; lon: number }>({ lat: 39.9042, lon: 116.4074 });
   const [healthStatus, setHealthStatus] = useState<HealthStatus>('unhealthy');
   const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
@@ -30,6 +31,7 @@ export default function App() {
   const analysisRunIdRef = useRef(0);
   const audioUrlRef = useRef<string | null>(null);
   const healthCheckInFlightRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setHistoryRecords(loadHistoryRecords());
@@ -138,6 +140,11 @@ export default function App() {
     revokeAudioUrl(audioUrlRef.current);
     audioUrlRef.current = null;
     setAudioUrl(null);
+    setAudioFileName('preview.mp3');
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const persistHistoryRecord = (nextDetections: BirdDetection[]) => {
@@ -219,6 +226,7 @@ export default function App() {
         clearAudio();
         audioUrlRef.current = nextAudioUrl;
         setAudioUrl(nextAudioUrl);
+        setAudioFileName('recording.mp3');
         await handleAnalyze(audioBlob);
       };
 
@@ -262,6 +270,31 @@ export default function App() {
     setDetections([]);
     setErrorMessage(null);
     setState('idle');
+  };
+
+  const handleUploadAudio = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const isAudioFile =
+      file.type.startsWith('audio/') || /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(file.name);
+
+    if (!isAudioFile) {
+      clearAudio();
+      setErrorMessage('请选择 MP3、WAV、M4A 等音频文件。');
+      setState('error');
+      return;
+    }
+
+    resetApp();
+    const nextAudioUrl = URL.createObjectURL(file);
+    audioUrlRef.current = nextAudioUrl;
+    setAudioUrl(nextAudioUrl);
+    setAudioFileName(file.name);
+    await handleAnalyze(file);
   };
 
   const handleAnalyze = async (blob: Blob) => {
@@ -554,14 +587,32 @@ export default function App() {
                     <p className="text-xs text-secondary-text px-6">点击开始，记录周围环境中的鸟鸣声</p>
                   </div>
 
-                  <button
-                    onClick={startRecording}
-                    className="w-24 h-24 rounded-full bg-white border-[8px] border-accent-green/20 flex items-center justify-center shadow-lg hover:scale-105 transition-transform group"
-                  >
-                    <div className="w-12 h-12 bg-accent-green rounded-full flex items-center justify-center group-active:scale-95 transition-transform">
-                      <Mic className="text-white w-6 h-6" />
-                    </div>
-                  </button>
+                  <div className="flex w-full flex-col items-center gap-4">
+                    <button
+                      onClick={startRecording}
+                      className="w-24 h-24 rounded-full bg-white border-[8px] border-accent-green/20 flex items-center justify-center shadow-lg hover:scale-105 transition-transform group"
+                    >
+                      <div className="w-12 h-12 bg-accent-green rounded-full flex items-center justify-center group-active:scale-95 transition-transform">
+                        <Mic className="text-white w-6 h-6" />
+                      </div>
+                    </button>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac"
+                      className="hidden"
+                      onChange={handleUploadAudio}
+                    />
+
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center gap-2 rounded-full bg-white/75 px-4 py-2 text-xs font-medium text-secondary-text border border-glass-border"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      上传音频文件
+                    </button>
+                  </div>
 
                   <button
                     onClick={openHistoryPage}
@@ -734,7 +785,9 @@ export default function App() {
 
                   <div className="text-center">
                     <div className="text-lg font-bold text-primary-text mb-2">正在分析中</div>
-                    <div className="text-[11px] text-secondary-text tracking-widest uppercase">Analyzing preview.mp3</div>
+                    <div className="text-[11px] text-secondary-text tracking-widest uppercase">
+                      Analyzing {audioFileName}
+                    </div>
                   </div>
                 </motion.div>
               )}

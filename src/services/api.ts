@@ -8,15 +8,20 @@ interface HealthResponse {
 }
 
 export async function analyzeBirdSound(
-  audioBlob: Blob, 
-  lat: number, 
+  audioBlob: Blob,
+  lat: number,
   lon: number,
   signal?: AbortSignal
 ): Promise<AnalyzeResponse> {
   const formData = new FormData();
-  // Create a file from the blob
-  const audioFile = new File([audioBlob], 'recording.mp3', { type: 'audio/mpeg' });
-  
+
+  const audioFile =
+    audioBlob instanceof File
+      ? audioBlob
+      : new File([audioBlob], 'recording.mp3', {
+          type: audioBlob.type || 'audio/mpeg',
+        });
+
   formData.append('audio', audioFile);
   formData.append('lat', lat.toString());
   formData.append('lon', lon.toString());
