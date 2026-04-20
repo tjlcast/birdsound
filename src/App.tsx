@@ -624,8 +624,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-8 items-start lg:items-stretch justify-center">
+    <div className="min-h-screen w-full flex flex-col items-center justify-start p-3 sm:p-4 md:justify-center md:p-8">
+      <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8 items-start lg:items-stretch justify-center">
         <div className={`hidden lg:flex flex-col gap-6 flex-1 max-w-lg lg:min-h-[640px] lg:self-stretch ${state === 'result' ? '!flex' : ''}`}>
           <div className="mb-4">
             {state === 'result' && (
@@ -716,17 +716,17 @@ export default function App() {
         </div>
 
         <div
-          className={`app-view glass-panel rounded-[40px] w-full max-w-[360px] h-[640px] flex flex-col p-8 shadow-2xl relative overflow-hidden shrink-0 ${
+          className={`app-shell app-view glass-panel relative flex w-full max-w-none shrink-0 flex-col overflow-hidden rounded-[28px] px-4 py-4 shadow-2xl sm:max-w-[420px] sm:rounded-[34px] sm:p-6 lg:max-w-[360px] lg:rounded-[40px] lg:px-8 lg:py-8 ${
             state === 'result' ? 'hidden lg:flex' : ''
           }`}
         >
-          <div className="flex justify-between items-center mb-10 z-20">
-            <div className="text-2xl font-bold text-accent-green tracking-wider">听鸟</div>
-            <div className="relative">
+          <div className="relative z-20 mb-6 flex items-center justify-between gap-3 sm:mb-8 lg:mb-10">
+            <div className="text-xl font-bold tracking-wider text-accent-green sm:text-2xl">听鸟</div>
+            <div className="flex justify-end">
               <button
                 type="button"
                 onClick={openSettings}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-glass-border bg-white/75 text-secondary-text shadow-sm transition-transform hover:scale-105"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-glass-border bg-white/75 text-secondary-text shadow-sm transition-transform hover:scale-105"
                 title={healthStatusLabel}
                 aria-label={`设置，${healthStatusLabel}`}
                 aria-expanded={isSettingsOpen}
@@ -742,21 +742,23 @@ export default function App() {
               {isSettingsOpen && (
                 <form
                   onSubmit={applySettings}
-                  className="absolute right-0 top-11 z-30 w-64 rounded-3xl border border-glass-border bg-white/95 p-4 text-left shadow-2xl"
+                  className="absolute inset-x-0 top-12 z-30 rounded-[28px] border border-glass-border bg-white/95 p-5 text-left shadow-2xl sm:inset-x-auto sm:right-0 sm:w-72 sm:rounded-3xl sm:p-4"
                 >
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mb-4 flex items-start justify-between gap-3 sm:mb-3 sm:items-center">
                     <div className="text-sm font-bold text-primary-text">设置</div>
-                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-secondary-text">
+                    <div className="max-w-[9rem] text-right text-[10px] font-medium text-secondary-text sm:max-w-none">
+                      <div className="flex items-center justify-end gap-1.5">
                       <span
                         className={`h-2.5 w-2.5 rounded-full ${
                           healthStatus === 'healthy' ? 'bg-emerald-500' : 'bg-red-500'
                         }`}
                       />
                       {healthStatusLabel}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mb-3 rounded-2xl bg-black/5 p-3">
+                  <div className="mb-4 rounded-2xl bg-black/5 p-3.5 sm:mb-3 sm:p-3">
                     <div className="mb-1 flex items-center gap-1.5 text-[10px] text-secondary-text">
                       <MapPin className="h-3 w-3" />
                       当前位置
@@ -766,22 +768,22 @@ export default function App() {
                     </div>
                   </div>
 
-                  <label className="mb-2 block">
-                    <span className="mb-1 block text-[10px] font-medium text-secondary-text">IP 地址</span>
+                  <label className="mb-3 block sm:mb-2">
+                    <span className="mb-1.5 block text-[10px] font-medium text-secondary-text">IP 地址</span>
                     <input
                       value={draftApiHost}
                       onChange={(event) => setDraftApiHost(event.target.value)}
-                      className="h-10 w-full rounded-2xl border border-glass-border bg-white px-3 text-xs font-medium text-primary-text outline-none focus:border-accent-green"
+                      className="h-11 w-full rounded-2xl border border-glass-border bg-white px-3.5 text-sm font-medium text-primary-text outline-none focus:border-accent-green sm:h-10 sm:px-3 sm:text-xs"
                       placeholder={DEFAULT_API_HOST}
                     />
                   </label>
 
-                  <label className="mb-4 block">
-                    <span className="mb-1 block text-[10px] font-medium text-secondary-text">端口</span>
+                  <label className="mb-5 block sm:mb-4">
+                    <span className="mb-1.5 block text-[10px] font-medium text-secondary-text">端口</span>
                     <input
                       value={draftApiPort}
                       onChange={(event) => setDraftApiPort(event.target.value)}
-                      className="h-10 w-full rounded-2xl border border-glass-border bg-white px-3 text-xs font-medium text-primary-text outline-none focus:border-accent-green"
+                      className="h-11 w-full rounded-2xl border border-glass-border bg-white px-3.5 text-sm font-medium text-primary-text outline-none focus:border-accent-green sm:h-10 sm:px-3 sm:text-xs"
                       inputMode="numeric"
                       placeholder={DEFAULT_API_PORT}
                     />
@@ -789,7 +791,7 @@ export default function App() {
 
                   <button
                     type="submit"
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-green py-3 text-xs font-bold text-white shadow-lg shadow-accent-green/20"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-green py-3.5 text-sm font-bold text-white shadow-lg shadow-accent-green/20 sm:py-3 sm:text-xs"
                   >
                     <Check className="h-3.5 w-3.5" />
                     确定
@@ -799,7 +801,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 flex flex-col z-10">
+          <div className="z-10 flex min-h-0 flex-1 flex-col">
             <AnimatePresence mode="wait">
               {state === 'idle' && (
                 <motion.div
@@ -807,23 +809,23 @@ export default function App() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="flex-1 flex flex-col items-center justify-center gap-8"
+                  className="flex-1 flex flex-col items-center justify-center gap-6 py-2 text-center sm:gap-8"
                 >
-                  <div className="text-center">
-                    <div className="w-20 h-20 bg-white/50 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-                      <Bird className="w-10 h-10 text-accent-green" />
+                  <div className="w-full max-w-xs text-center sm:max-w-sm">
+                    <div className="mx-auto mb-4 flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-3xl bg-white/50 shadow-sm sm:mb-6 sm:h-20 sm:w-20">
+                      <Bird className="h-9 w-9 text-accent-green sm:h-10 sm:w-10" />
                     </div>
-                    <h2 className="text-xl font-bold text-primary-text mb-2">准备开始识别了吗？</h2>
-                    <p className="text-xs text-secondary-text px-6">点击开始，记录周围环境中的鸟鸣声</p>
+                    <h2 className="mb-2 text-lg font-bold text-primary-text sm:text-xl">准备开始识别了吗？</h2>
+                    <p className="px-2 text-xs leading-relaxed text-secondary-text sm:px-6">点击开始，记录周围环境中的鸟鸣声</p>
                   </div>
 
-                  <div className="flex w-full flex-col items-center gap-4">
+                  <div className="flex w-full flex-col items-center gap-3 sm:gap-4">
                     <button
                       onClick={startRecording}
-                      className="w-24 h-24 rounded-full bg-white border-[8px] border-accent-green/20 flex items-center justify-center shadow-lg hover:scale-105 transition-transform group"
+                      className="group flex h-[5.5rem] w-[5.5rem] items-center justify-center rounded-full border-[8px] border-accent-green/20 bg-white shadow-lg transition-transform hover:scale-105 sm:h-24 sm:w-24"
                     >
-                      <div className="w-12 h-12 bg-accent-green rounded-full flex items-center justify-center group-active:scale-95 transition-transform">
-                        <Mic className="text-white w-6 h-6" />
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-green transition-transform group-active:scale-95 sm:h-12 sm:w-12">
+                        <Mic className="h-5 w-5 text-white sm:h-6 sm:w-6" />
                       </div>
                     </button>
 
@@ -837,7 +839,7 @@ export default function App() {
 
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-2 rounded-full bg-white/75 px-4 py-2 text-xs font-medium text-secondary-text border border-glass-border"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-glass-border bg-white/75 px-4 py-2.5 text-xs font-medium text-secondary-text"
                     >
                       <Upload className="w-3.5 h-3.5" />
                       上传音频文件
@@ -846,7 +848,7 @@ export default function App() {
 
                   <button
                     onClick={openHistoryPage}
-                    className="text-xs text-secondary-text mt-4 flex items-center gap-2 rounded-full px-4 py-2 bg-white/55 border border-glass-border"
+                    className="mt-2 flex min-h-11 items-center gap-2 rounded-full border border-glass-border bg-white/55 px-4 py-2.5 text-xs text-secondary-text sm:mt-4"
                   >
                     <HistoryIcon className="w-3.5 h-3.5" />
                     查看历史记录
@@ -860,17 +862,17 @@ export default function App() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="history-scroll history-mobile-shell flex-1 min-h-0 overflow-y-auto flex flex-col pr-1"
+                  className="history-scroll history-mobile-shell app-scroll-region flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5"
                 >
                   <div className="shrink-0">
-                  <div className="mb-6 flex items-center gap-2">
-                    <button onClick={resetApp} className="p-1.5 bg-black/5 rounded-lg text-secondary-text">
+                  <div className="mb-4 flex items-center gap-2 sm:mb-6">
+                    <button onClick={resetApp} className="rounded-lg bg-black/5 p-2 text-secondary-text">
                       <ArrowLeft className="w-4 h-4" />
                     </button>
                     <span className="text-sm font-bold text-primary-text">历史记录</span>
                   </div>
 
-                  <div className="rounded-3xl bg-white/60 border border-white/40 p-5 mb-4">
+                  <div className="mb-4 rounded-3xl border border-white/40 bg-white/60 p-4 sm:p-5">
                     <div className="text-xs text-secondary-text mb-2">概要</div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-2xl bg-white/75 p-3">
@@ -885,12 +887,12 @@ export default function App() {
                   </div>
                   </div>
 
-                  <div className="pb-4">{renderHistoryList(true)}</div>
+                  <div className="pb-3">{renderHistoryList(true)}</div>
 
-                  <div className="history-footer-mobile shrink-0 border-t border-black/5 pt-4 mt-3 space-y-3">
+                  <div className="history-footer-mobile shrink-0 border-t border-black/5 pt-4 mt-2 space-y-3">
                     <button
                       onClick={resetApp}
-                      className="w-full py-3.5 bg-accent-green text-white rounded-2xl font-bold shadow-lg shadow-accent-green/20"
+                      className="w-full rounded-2xl bg-accent-green py-3.5 font-bold text-white shadow-lg shadow-accent-green/20"
                     >
                       返回首页
                     </button>
@@ -911,19 +913,19 @@ export default function App() {
                   key="recording"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex-1 flex flex-col items-center justify-center gap-12"
+                  className="flex-1 flex flex-col items-center justify-center gap-8 py-2 sm:gap-10"
                 >
                   <div className="w-full flex justify-start">
                     <button
                       onClick={cancelRecording}
-                      className="inline-flex items-center gap-2 rounded-xl bg-black/5 px-3 py-2 text-xs font-medium text-secondary-text"
+                      className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-black/5 px-3 py-2 text-xs font-medium text-secondary-text"
                     >
                       <ArrowLeft className="w-4 h-4" />
                       取消
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-1 h-14">
+                  <div className="flex h-12 items-center gap-1 sm:h-14">
                     {[...Array(8)].map((_, i) => (
                       <motion.div
                         key={i}
@@ -935,15 +937,15 @@ export default function App() {
                     ))}
                   </div>
 
-                  <button
-                    onClick={stopRecording}
-                    className="w-24 h-24 rounded-full bg-white border-[8px] border-red-500/20 flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
-                  >
-                    <div className="w-12 h-12 bg-red-500 rounded-xl animate-pulse" />
-                  </button>
+                    <button
+                      onClick={stopRecording}
+                      className="flex h-[5.5rem] w-[5.5rem] items-center justify-center rounded-full border-[8px] border-red-500/20 bg-white shadow-lg transition-transform hover:scale-105 sm:h-24 sm:w-24"
+                    >
+                      <div className="h-11 w-11 animate-pulse rounded-xl bg-red-500 sm:h-12 sm:w-12" />
+                    </button>
 
                   <div className="flex flex-col items-center gap-2">
-                    <div className="text-2xl font-mono font-bold text-primary-text">{formatTime(recordingTime)}</div>
+                    <div className="text-xl font-mono font-bold text-primary-text sm:text-2xl">{formatTime(recordingTime)}</div>
                     <div className="text-xs text-secondary-text">正在聆听周围环境...</div>
                   </div>
                 </motion.div>
@@ -954,12 +956,12 @@ export default function App() {
                   key="analyzing"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex-1 flex flex-col items-center justify-center gap-10"
+                  className="flex-1 flex flex-col items-center justify-center gap-7 py-2 sm:gap-10"
                 >
                   <div className="w-full flex justify-start">
                     <button
                       onClick={cancelAnalyzing}
-                      className="inline-flex items-center gap-2 rounded-xl bg-black/5 px-3 py-2 text-xs font-medium text-secondary-text"
+                      className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-black/5 px-3 py-2 text-xs font-medium text-secondary-text"
                     >
                       <ArrowLeft className="w-4 h-4" />
                       返回
@@ -970,16 +972,16 @@ export default function App() {
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
-                      className="w-32 h-32 border-4 border-accent-green/20 border-t-accent-green rounded-full"
+                      className="h-[6.5rem] w-[6.5rem] rounded-full border-4 border-accent-green/20 border-t-accent-green sm:h-32 sm:w-32"
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Bird className="w-10 h-10 text-accent-green animate-bounce" />
+                      <Bird className="h-8 w-8 animate-bounce text-accent-green sm:h-10 sm:w-10" />
                     </div>
                   </div>
 
                   <div className="text-center">
                     <div className="text-lg font-bold text-primary-text mb-2">正在分析中</div>
-                    <div className="text-[11px] text-secondary-text tracking-widest uppercase">
+                    <div className="break-all text-[11px] text-secondary-text tracking-[0.2em] uppercase">
                       Analyzing {audioFileName}
                     </div>
                   </div>
@@ -991,19 +993,19 @@ export default function App() {
                   key="result-mobile"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex-1 flex flex-col"
+                  className="flex min-h-0 flex-1 flex-col"
                 >
-                  <div className="mb-6 flex items-center gap-2">
-                    <button onClick={resetApp} className="p-1.5 bg-black/5 rounded-lg text-secondary-text">
+                  <div className="mb-4 flex items-center gap-2 sm:mb-5">
+                    <button onClick={resetApp} className="rounded-lg bg-black/5 p-2 text-secondary-text">
                       <ArrowLeft className="w-4 h-4" />
                     </button>
                     <span className="text-sm font-bold text-primary-text">识别结果</span>
                   </div>
 
-                  <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+                  <div className="app-scroll-region flex-1 min-h-0 overflow-y-auto pr-0.5 space-y-3 sm:space-y-4">
                     {renderAnalysisDetails(true)}
                     {detections.length > 0 && (
-                      <div className="bg-white/60 rounded-3xl p-5 border border-white/40">
+                      <div className="rounded-3xl border border-white/40 bg-white/60 p-4 sm:p-5">
                       {(() => {
                         const topInfo = getDetectionDisplayInfo(detections[0]);
 
@@ -1012,13 +1014,13 @@ export default function App() {
                             <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-secondary-text/70 mb-3">
                               Top Match
                             </div>
-                            <div className="flex gap-4 mb-4">
+                            <div className="mb-4 flex gap-3 sm:gap-4">
                               <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-sm shrink-0">
                                 <img src={topInfo.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               </div>
                               <div className="min-w-0">
-                                <div className="font-bold text-primary-text truncate">{topInfo.name}</div>
-                                <div className="text-[10px] text-secondary-text italic truncate">{topInfo.scientificName}</div>
+                                <div className="break-words font-bold text-primary-text">{topInfo.name}</div>
+                                <div className="break-all text-[10px] italic text-secondary-text">{topInfo.scientificName}</div>
                                 <div className="mt-2 text-xs font-bold text-accent-green">
                                   置信度 {Math.round(detections[0].confidence * 100)}%
                                 </div>
@@ -1035,7 +1037,7 @@ export default function App() {
                     {renderResultList(true)}
                   </div>
 
-                  <div className="mt-auto space-y-3">
+                  <div className="app-shell-footer mt-4 space-y-3 border-t border-black/5 pt-4">
                     <button
                       onClick={resetApp}
                       className="w-full py-3.5 bg-accent-green text-white rounded-2xl font-bold shadow-lg shadow-accent-green/20 flex items-center justify-center gap-2"
@@ -1053,7 +1055,7 @@ export default function App() {
             </AnimatePresence>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-black/5 text-center">
+          <div className="app-shell-footer mt-4 border-t border-black/5 pt-4 text-center sm:mt-6 sm:pt-6">
             <p className="text-[9px] text-secondary-text/60 tracking-widest uppercase font-bold">
               Smart AI Bird Observation Tool
             </p>
@@ -1063,14 +1065,14 @@ export default function App() {
       </div>
 
       {state === 'error' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-6">
-          <div className="glass-panel p-8 rounded-[32px] max-w-sm w-full text-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4 backdrop-blur-sm sm:p-6">
+          <div className="glass-panel w-full max-w-sm rounded-[28px] p-5 text-center sm:rounded-[32px] sm:p-8">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
               <Info />
             </div>
             <h3 className="text-xl font-bold mb-2">识别出错了</h3>
-            <p className="text-secondary-text text-sm mb-6">{errorMessage}</p>
-            <button onClick={resetApp} className="w-full py-4 bg-accent-green text-white rounded-2xl font-bold shadow-lg">
+            <p className="mb-6 break-words text-sm text-secondary-text">{errorMessage}</p>
+            <button onClick={resetApp} className="w-full rounded-2xl bg-accent-green py-4 font-bold text-white shadow-lg">
               返回重试
             </button>
           </div>
