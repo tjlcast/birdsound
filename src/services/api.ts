@@ -1,7 +1,16 @@
 import axios from 'axios';
 import { AnalyzeResponse } from '../types';
 
-const API_BASE_URL = 'http://127.0.0.1:8000';
+export const DEFAULT_API_HOST = '127.0.0.1';
+export const DEFAULT_API_PORT = '8000';
+
+export function buildApiBaseUrl(host: string, port: string): string {
+  const normalizedHost = (host.trim() || DEFAULT_API_HOST).replace(/\/+$/, '');
+  const normalizedPort = port.trim() || DEFAULT_API_PORT;
+  const hostWithProtocol = /^https?:\/\//i.test(normalizedHost) ? normalizedHost : `http://${normalizedHost}`;
+
+  return `${hostWithProtocol}:${normalizedPort}`;
+}
 
 interface HealthResponse {
   status: string;
@@ -67,7 +76,8 @@ export async function analyzeBirdSound(
   audioBlob: Blob,
   lat: number,
   lon: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  apiBaseUrl = buildApiBaseUrl(DEFAULT_API_HOST, DEFAULT_API_PORT)
 ): Promise<AnalyzeResponse> {
   const formData = new FormData();
 
@@ -83,7 +93,7 @@ export async function analyzeBirdSound(
   formData.append('lon', lon.toString());
 
   try {
-    const response = await axios.post(`${API_BASE_URL}/analyze`, formData, {
+    const response = await axios.post(`${apiBaseUrl}/analyze`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -96,9 +106,12 @@ export async function analyzeBirdSound(
   }
 }
 
-export async function checkServerHealth(signal?: AbortSignal): Promise<boolean> {
+export async function checkServerHealth(
+  apiBaseUrl = buildApiBaseUrl(DEFAULT_API_HOST, DEFAULT_API_PORT),
+  signal?: AbortSignal
+): Promise<boolean> {
   try {
-    const response = await axios.get<HealthResponse>(`${API_BASE_URL}/health`, {
+    const response = await axios.get<HealthResponse>(`${apiBaseUrl}/health`, {
       signal,
     });
 

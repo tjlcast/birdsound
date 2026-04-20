@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Bird, Clock3, History as HistoryIcon, Info, MapPin, Mic, RefreshCw, Share2, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Bird, Check, Clock3, History as HistoryIcon, Info, MapPin, Mic, RefreshCw, Settings, Share2, Trash2, Upload } from 'lucide-react';
 import { BIRD_DATASET, DEFAULT_BIRD } from './constants/birds';
-import { analyzeBirdSound, checkServerHealth } from './services/api';
+import { analyzeBirdSound, buildApiBaseUrl, checkServerHealth, DEFAULT_API_HOST, DEFAULT_API_PORT } from './services/api';
 import { clearHistoryRecords, loadHistoryRecords, saveHistoryRecord } from './services/history';
 import { AnalysisDetails, BirdDetection, HistoryRecord } from './types';
 
@@ -15,6 +15,9 @@ type BirdDisplayInfo = {
   image: string;
 };
 
+const API_HOST_STORAGE_KEY = 'birdsound_api_host';
+const API_PORT_STORAGE_KEY = 'birdsound_api_port';
+
 export default function App() {
   const [state, setState] = useState<AppState>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
@@ -26,6 +29,11 @@ export default function App() {
   const [healthStatus, setHealthStatus] = useState<HealthStatus>('unhealthy');
   const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
   const [analysisDetails, setAnalysisDetails] = useState<AnalysisDetails | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [apiHost, setApiHost] = useState(() => localStorage.getItem(API_HOST_STORAGE_KEY) || DEFAULT_API_HOST);
+  const [apiPort, setApiPort] = useState(() => localStorage.getItem(API_PORT_STORAGE_KEY) || DEFAULT_API_PORT);
+  const [draftApiHost, setDraftApiHost] = useState(apiHost);
+  const [draftApiPort, setDraftApiPort] = useState(apiPort);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -36,6 +44,8 @@ export default function App() {
   const audioUrlRef = useRef<string | null>(null);
   const healthCheckInFlightRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const apiBaseUrl = buildApiBaseUrl(apiHost, apiPort);
 
   useEffect(() => {
     setHistoryRecords(loadHistoryRecords());
@@ -72,7 +82,7 @@ export default function App() {
       healthCheckInFlightRef.current = true;
 
       try {
-        const isHealthy = await checkServerHealth();
+        const isHealthy = await checkServerHealth(apiBaseUrl);
 
         if (isMounted) {
           setHealthStatus(isHealthy ? 'healthy' : 'unhealthy');
@@ -89,7 +99,7 @@ export default function App() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [apiBaseUrl]);
 
   useEffect(() => {
     return () => {
@@ -356,7 +366,7 @@ export default function App() {
         return;
       }
 
-      const response = await analyzeBirdSound(blob, analysisLocation.lat, analysisLocation.lon, controller.signal);
+      const response = await analyzeBirdSound(blob, analysisLocation.lat, analysisLocation.lon, controller.signal, apiBaseUrl);
       if (analysisRunIdRef.current !== runId) {
         return;
       }
@@ -419,6 +429,28 @@ export default function App() {
   };
 
   const formatCoordinates = (lat: number, lon: number) => `${lat.toFixed(4)}N ${lon.toFixed(4)}E`;
+
+  const healthStatusLabel = healthStatus === 'healthy' ? '服务正常' : '服务异常';
+
+  const openSettings = () => {
+    setDraftApiHost(apiHost);
+    setDraftApiPort(apiPort);
+    setIsSettingsOpen((prev) => !prev);
+  };
+
+  const applySettings = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const nextHost = draftApiHost.trim() || DEFAULT_API_HOST;
+    const nextPort = draftApiPort.trim() || DEFAULT_API_PORT;
+
+    localStorage.setItem(API_HOST_STORAGE_KEY, nextHost);
+    localStorage.setItem(API_PORT_STORAGE_KEY, nextPort);
+    setApiHost(nextHost);
+    setApiPort(nextPort);
+    setIsSettingsOpen(false);
+    setHealthStatus('unhealthy');
+  };
 
   const formatDuration = (durationMs: number) => {
     if (durationMs < 1000) {
@@ -593,16 +625,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 md:p-8">
-      <div className="fixed right-4 top-4 z-50">
-        <div
-          className={`h-3.5 w-3.5 rounded-full border border-white/80 shadow-sm ${
-            healthStatus === 'healthy' ? 'bg-emerald-500' : 'bg-red-500'
-          }`}
-          title={healthStatus === 'healthy' ? 'Server healthy' : 'Server unhealthy'}
-          aria-label={healthStatus === 'healthy' ? 'Server healthy' : 'Server unhealthy'}
-        />
-      </div>
-
       <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-8 items-start lg:items-stretch justify-center">
         <div className={`hidden lg:flex flex-col gap-6 flex-1 max-w-lg lg:min-h-[640px] lg:self-stretch ${state === 'result' ? '!flex' : ''}`}>
           <div className="mb-4">
@@ -698,10 +720,82 @@ export default function App() {
             state === 'result' ? 'hidden lg:flex' : ''
           }`}
         >
-          <div className="flex justify-between items-center mb-10 z-10">
+          <div className="flex justify-between items-center mb-10 z-20">
             <div className="text-2xl font-bold text-accent-green tracking-wider">听鸟</div>
-            <div className="text-[10px] bg-black/5 px-3 py-1.5 rounded-full text-secondary-text font-medium">
-              {location.lat.toFixed(1)}N {location.lon.toFixed(1)}E
+            <div className="relative">
+              <button
+                type="button"
+                onClick={openSettings}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-glass-border bg-white/75 text-secondary-text shadow-sm transition-transform hover:scale-105"
+                title={healthStatusLabel}
+                aria-label={`设置，${healthStatusLabel}`}
+                aria-expanded={isSettingsOpen}
+              >
+                <Settings className="h-4 w-4" />
+                <span
+                  className={`absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border border-white shadow-sm ${
+                    healthStatus === 'healthy' ? 'bg-emerald-500' : 'bg-red-500'
+                  }`}
+                />
+              </button>
+
+              {isSettingsOpen && (
+                <form
+                  onSubmit={applySettings}
+                  className="absolute right-0 top-11 z-30 w-64 rounded-3xl border border-glass-border bg-white/95 p-4 text-left shadow-2xl"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="text-sm font-bold text-primary-text">设置</div>
+                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-secondary-text">
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          healthStatus === 'healthy' ? 'bg-emerald-500' : 'bg-red-500'
+                        }`}
+                      />
+                      {healthStatusLabel}
+                    </div>
+                  </div>
+
+                  <div className="mb-3 rounded-2xl bg-black/5 p-3">
+                    <div className="mb-1 flex items-center gap-1.5 text-[10px] text-secondary-text">
+                      <MapPin className="h-3 w-3" />
+                      当前位置
+                    </div>
+                    <div className="break-all text-xs font-semibold text-primary-text">
+                      {formatCoordinates(location.lat, location.lon)}
+                    </div>
+                  </div>
+
+                  <label className="mb-2 block">
+                    <span className="mb-1 block text-[10px] font-medium text-secondary-text">IP 地址</span>
+                    <input
+                      value={draftApiHost}
+                      onChange={(event) => setDraftApiHost(event.target.value)}
+                      className="h-10 w-full rounded-2xl border border-glass-border bg-white px-3 text-xs font-medium text-primary-text outline-none focus:border-accent-green"
+                      placeholder={DEFAULT_API_HOST}
+                    />
+                  </label>
+
+                  <label className="mb-4 block">
+                    <span className="mb-1 block text-[10px] font-medium text-secondary-text">端口</span>
+                    <input
+                      value={draftApiPort}
+                      onChange={(event) => setDraftApiPort(event.target.value)}
+                      className="h-10 w-full rounded-2xl border border-glass-border bg-white px-3 text-xs font-medium text-primary-text outline-none focus:border-accent-green"
+                      inputMode="numeric"
+                      placeholder={DEFAULT_API_PORT}
+                    />
+                  </label>
+
+                  <button
+                    type="submit"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-green py-3 text-xs font-bold text-white shadow-lg shadow-accent-green/20"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    确定
+                  </button>
+                </form>
+              )}
             </div>
           </div>
 
