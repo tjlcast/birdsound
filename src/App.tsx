@@ -520,7 +520,7 @@ export default function App() {
             compact ? 'bg-white/55 p-5' : 'glass-card p-6'
           }`}
         >
-          褰撳墠娌℃湁鍙煡鐪嬬殑鍘嗗彶缁撴灉銆?
+          当前没有可查看的历史结果。
         </div>
       );
     }
@@ -549,7 +549,7 @@ export default function App() {
                       <div className="text-sm font-bold text-primary-text truncate">{info.name}</div>
                       <div className="text-[10px] text-secondary-text truncate">{formatHistoryDate(record.createdAt)}</div>
                       <div className="text-[10px] text-accent-green mt-1">
-                        {topDetection ? Math.round(topDetection.confidence * 100) : 0}% 缃俊搴?
+                        {topDetection ? Math.round(topDetection.confidence * 100) : 0}% 置信度
                       </div>
                       <div className="text-[10px] text-secondary-text truncate">
                         {formatCoordinates(record.lat, record.lon)} · {formatDuration(record.analysisDurationMs)}
@@ -564,14 +564,14 @@ export default function App() {
                         </div>
                       </div>
                       <div className="text-xs italic text-secondary-text truncate mb-3">
-                        {topDetection?.scientific_name || '����ʶ����'}
+                        {topDetection?.scientific_name || '暂无识别结果'}
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-secondary-text">
                         <span className="rounded-full bg-white/70 px-2.5 py-1">
-                          鏈€楂樼疆淇″害 {topDetection ? Math.round(topDetection.confidence * 100) : 0}%
+                          最高置信度 {topDetection ? Math.round(topDetection.confidence * 100) : 0}%
                         </span>
                         <span className="rounded-full bg-white/70 px-2.5 py-1">
-                          �?{record.detections.length} 椤圭粨鏋?
+                          共 {record.detections.length} 项结果
                         </span>
                         <span className="rounded-full bg-white/70 px-2.5 py-1">
                           {formatCoordinates(record.lat, record.lon)}
@@ -666,14 +666,14 @@ export default function App() {
           {state === 'history' && (
             <div className="history-scroll glass-panel flex min-h-0 flex-1 flex-col overflow-y-auto rounded-[32px] p-5 pr-3">
               <div className="shrink-0 rounded-3xl bg-white/60 border border-white/40 p-5 mb-4">
-                <div className="text-xs text-secondary-text mb-2">��Ҫ</div>
+                <div className="text-xs text-secondary-text mb-2">概要</div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-2xl bg-white/75 p-3">
-                    <div className="text-[11px] text-secondary-text">��¼����</div>
+                    <div className="text-[11px] text-secondary-text">记录总数</div>
                     <div className="text-2xl font-bold text-primary-text">{historySummary.count}</div>
                   </div>
                   <div className="rounded-2xl bg-white/75 p-3">
-                    <div className="text-[11px] text-secondary-text">���ʶ��</div>
+                    <div className="text-[11px] text-secondary-text">最近识别</div>
                     <div className="text-sm font-bold text-primary-text truncate">{historySummary.latestBird}</div>
                   </div>
                 </div>
@@ -683,56 +683,7 @@ export default function App() {
                 {renderHistoryList()}
               </div>
             </div>
-          )}{/*
-            <div className="space-y-4 w-full">
-              {historyRecords.length === 0 ? (
-                <div className="glass-card p-6 rounded-3xl text-sm text-secondary-text">
-                  还没有历史记录。先完成一次识别，结果就会自动保存到本地。
-                </div>
-              ) : (
-                historyRecords.map((record) => {
-                  const topDetection = record.detections[0];
-                  const info = getDetectionDisplayInfo(topDetection);
-
-                  return (
-                    <button
-                      key={record.id}
-                      onClick={() => openHistoryRecord(record)}
-                      className="glass-card p-5 rounded-3xl w-full text-left transition-transform hover:-translate-y-0.5"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="w-20 h-20 bg-white rounded-2xl overflow-hidden shrink-0 shadow-sm">
-                          <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-3 mb-2">
-                            <div className="text-lg font-bold text-primary-text truncate">{info.name}</div>
-                            <div className="text-[11px] text-secondary-text whitespace-nowrap">
-                              {formatHistoryDate(record.createdAt)}
-                            </div>
-                          </div>
-                          <div className="text-xs italic text-secondary-text truncate mb-3">
-                            {topDetection?.scientific_name || '暂无识别结果'}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 text-[11px] text-secondary-text">
-                            <span className="rounded-full bg-white/70 px-2.5 py-1">
-                              最高置信度 {topDetection ? Math.round(topDetection.confidence * 100) : 0}%
-                            </span>
-                            <span className="rounded-full bg-white/70 px-2.5 py-1">
-                              共 {record.detections.length} 项结果
-                            </span>
-                            <span className="rounded-full bg-white/70 px-2.5 py-1">
-                              {record.lat.toFixed(1)}N {record.lon.toFixed(1)}E
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          )*/}
+          )}
 
           {state === 'result' && (
             <div className="space-y-4">
@@ -840,39 +791,7 @@ export default function App() {
                   </div>
                   </div>
 
-                  <div className="pb-4">{renderHistoryList(true)}{/*
-                    {historyRecords.length === 0 ? (
-                      <div className="rounded-3xl bg-white/55 border border-white/40 p-5 text-sm text-secondary-text">
-                        当前没有可查看的历史结果�?                      </div>
-                    ) : (
-                      historyRecords.map((record) => {
-                        const topDetection = record.detections[0];
-                        const info = getDetectionDisplayInfo(topDetection);
-
-                        return (
-                          <button
-                            key={record.id}
-                            onClick={() => openHistoryRecord(record)}
-                            className="w-full rounded-3xl bg-white/55 border border-white/40 p-4 text-left"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0">
-                                <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-bold text-primary-text truncate">{info.name}</div>
-                                <div className="text-[10px] text-secondary-text truncate">
-                                  {formatHistoryDate(record.createdAt)}
-                                </div>
-                                <div className="text-[10px] text-accent-green mt-1">
-                                  {topDetection ? Math.round(topDetection.confidence * 100) : 0}% 置信�?                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  */}</div>
+                  <div className="pb-4">{renderHistoryList(true)}</div>
 
                   <div className="history-footer-mobile shrink-0 border-t border-black/5 pt-4 mt-3 space-y-3">
                     <button
