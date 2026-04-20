@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">bird_sound</string>
+    <string name="title_activity_main">bird_sound</string>
+    <string name="package_name">com.example.bird_sound</string>
+    <string name="custom_url_scheme">com.example.bird_sound</string>
+</resources>

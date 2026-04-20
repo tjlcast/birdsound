@@ -6,3 +6,36 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Android / Capacitor build outputs and local machine files
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+*.class
+
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.idea/caches/
+android/.idea/workspace.xml
+android/.idea/tasks.xml
+android/.idea/gradle.xml
+android/.idea/assetWizardSettings.xml
+android/.idea/dictionaries/
+android/.idea/libraries/
+android/.idea/modules.xml
+android/.idea/navEditor.xml
+android/.idea/vcs.xml
+android/.externalNativeBuild/
+android/.cxx/
+android/captures/
+android/.navigation/
+
+# Capacitor-generated Android files
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml

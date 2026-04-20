@@ -5,6 +5,8 @@ import { BIRD_DATASET, DEFAULT_BIRD } from './constants/birds';
 import { analyzeBirdSound, buildApiBaseUrl, checkServerHealth, DEFAULT_API_HOST, DEFAULT_API_PORT } from './services/api';
 import { clearHistoryRecords, loadHistoryRecords, saveHistoryRecord } from './services/history';
 import { AnalysisDetails, BirdDetection, HistoryRecord } from './types';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 
 type AppState = 'idle' | 'recording' | 'analyzing' | 'result' | 'history' | 'error';
 type HealthStatus = 'healthy' | 'unhealthy';
@@ -46,6 +48,18 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const apiBaseUrl = buildApiBaseUrl(apiHost, apiPort);
+
+  useEffect(() => {
+    const initStatusBar = async () => {
+      // 只在原生平台执行，网页端跳过
+      if (Capacitor.isNativePlatform()) {
+        await StatusBar.setStyle({ style: Style.Light }); // 状态栏图标深色
+        await StatusBar.setBackgroundColor({ color: '#ffffff' }); // 背景白色
+      }
+    };
+
+    initStatusBar();
+  }, []);
 
   useEffect(() => {
     setHistoryRecords(loadHistoryRecords());
