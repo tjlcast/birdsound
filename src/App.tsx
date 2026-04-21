@@ -521,7 +521,7 @@ export default function App() {
     }
 
     return (
-      <div className={`w-full ${compact ? 'space-y-3' : 'space-y-4'}`}>
+      <div className={`w-full max-w-full min-w-0 ${compact ? 'space-y-3' : 'space-y-4'} sm:space-y-4`}>
         {detections.map((det, idx) => {
           const info = getDetectionDisplayInfo(det);
 
@@ -531,22 +531,22 @@ export default function App() {
               initial={{ opacity: 0, x: compact ? 0 : -20, y: compact ? 12 : 0 }}
               animate={{ opacity: 1, x: 0, y: 0 }}
               transition={{ delay: idx * 0.1 }}
-              className={`glass-card rounded-3xl flex ${compact ? 'gap-3 p-4' : 'gap-4 p-6'} ${idx > 0 ? 'opacity-80' : ''}`}
+               className={`glass-card rounded-3xl flex w-full max-w-full min-w-0 ${compact ? 'gap-3 p-4' : 'gap-4 p-6'} sm:gap-4 sm:p-5 md:p-6 ${idx > 0 ? 'opacity-80' : ''}`}
             >
-              <div className={`${compact ? 'w-16 h-16' : 'w-20 h-20'} bg-white rounded-2xl flex items-center justify-center text-3xl shadow-sm overflow-hidden shrink-0`}>
+               <div className={`${compact ? 'w-16 h-16' : 'w-20 h-20'} sm:w-[4.5rem] sm:h-[4.5rem] md:w-20 md:h-20 bg-white rounded-2xl flex items-center justify-center text-3xl shadow-sm overflow-hidden shrink-0`}>
                 <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className={`${compact ? 'text-base' : 'text-xl'} font-bold text-primary-text truncate`}>{info.name}</div>
-                <div className={`${compact ? 'text-[10px] mb-2' : 'text-xs mb-3'} italic text-secondary-text truncate`}>{info.scientificName}</div>
-                <div className={`flex items-center ${compact ? 'gap-2' : 'gap-3'}`}>
-                  <div className={`flex-1 bg-black/5 rounded-full overflow-hidden ${compact ? 'h-1' : 'h-1.5'}`}>
+                 <div className={`${compact ? 'text-base' : 'text-xl'} sm:text-lg md:text-xl font-bold text-primary-text truncate`}>{info.name}</div>
+                 <div className={`${compact ? 'text-[10px] mb-2' : 'text-xs mb-3'} sm:text-xs sm:mb-3 italic text-secondary-text truncate`}>{info.scientificName}</div>
+                 <div className={`flex min-w-0 items-center ${compact ? 'gap-2' : 'gap-3'} sm:gap-3`}>
+                   <div className={`min-w-0 flex-1 bg-black/5 rounded-full overflow-hidden ${compact ? 'h-1' : 'h-1.5'} sm:h-1.5`}>
                     <div
                       className="h-full bg-accent-green transition-all duration-1000"
                       style={{ width: `${det.confidence * 100}%` }}
                     />
                   </div>
-                  <div className={`${compact ? 'text-[10px] w-9' : 'text-xs w-10'} font-bold text-accent-green text-right`}>
+                   <div className={`${compact ? 'text-[10px] w-9' : 'text-xs w-10'} sm:text-xs sm:w-10 font-bold text-accent-green text-right`}>
                     {Math.round(det.confidence * 100)}%
                   </div>
                 </div>
@@ -572,7 +572,7 @@ export default function App() {
     }
 
     return (
-      <div className={`w-full ${compact ? 'space-y-3' : 'space-y-4'}`}>
+      <div className={`w-full max-w-full ${compact ? 'space-y-3' : 'space-y-4'} sm:space-y-4`}>
         {historyRecords.map((record) => {
           const topDetection = record.detections[0];
           const info = getDetectionDisplayInfo(topDetection);
@@ -581,52 +581,52 @@ export default function App() {
             <button
               key={record.id}
               onClick={() => openHistoryRecord(record)}
-              className={`w-full rounded-3xl border border-white/40 text-left transition-transform ${
-                compact ? 'bg-white/55 p-4' : 'glass-card p-5 hover:-translate-y-0.5'
-              }`}
+                className={`w-full max-w-full rounded-3xl border border-white/40 text-left transition-transform ${
+                  compact ? 'bg-white/55 p-4' : 'glass-card p-5 hover:-translate-y-0.5'
+                } sm:p-5 min-h-[44px]`}
             >
-              <div className={`flex ${compact ? 'items-center gap-3' : 'items-start gap-4'}`}>
-                <div className={`${compact ? 'w-14 h-14' : 'w-20 h-20'} rounded-2xl overflow-hidden shrink-0 shadow-sm bg-white`}>
+               <div className={`flex ${compact ? 'items-center gap-3' : 'items-start gap-4'} sm:items-start sm:gap-4`}>
+                <div className={`${compact ? 'w-14 h-14' : 'w-20 h-20'} sm:w-[4.5rem] sm:h-[4.5rem] md:w-20 md:h-20 rounded-2xl overflow-hidden shrink-0 shadow-sm bg-white`}>
                   <img src={info.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
                 <div className="flex-1 min-w-0">
                   {compact ? (
-                    <>
-                      <div className="text-sm font-bold text-primary-text truncate">{info.name}</div>
-                      <div className="text-[10px] text-secondary-text truncate">{formatHistoryDate(record.createdAt)}</div>
-                      <div className="text-[10px] text-accent-green mt-1">
-                        {topDetection ? Math.round(topDetection.confidence * 100) : 0}% 置信度
-                      </div>
-                      <div className="text-[10px] text-secondary-text truncate">
-                        {formatCoordinates(record.lat, record.lon)} · {formatDuration(record.analysisDurationMs)}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <div className="text-lg font-bold text-primary-text truncate">{info.name}</div>
-                        <div className="text-[11px] text-secondary-text whitespace-nowrap">
-                          {formatHistoryDate(record.createdAt)}
-                        </div>
-                      </div>
-                      <div className="text-xs italic text-secondary-text truncate mb-3">
-                        {topDetection?.scientific_name || '暂无识别结果'}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-secondary-text">
-                        <span className="rounded-full bg-white/70 px-2.5 py-1">
-                          最高置信度 {topDetection ? Math.round(topDetection.confidence * 100) : 0}%
-                        </span>
-                        <span className="rounded-full bg-white/70 px-2.5 py-1">
-                          共 {record.detections.length} 项结果
-                        </span>
-                        <span className="rounded-full bg-white/70 px-2.5 py-1">
-                          {formatCoordinates(record.lat, record.lon)}
-                        </span>
-                        <span className="rounded-full bg-white/70 px-2.5 py-1">
-                          {formatDuration(record.analysisDurationMs)}
-                        </span>
-                      </div>
-                    </>
+                     <>
+                       <div className="text-sm font-bold text-primary-text truncate sm:text-base">{info.name}</div>
+                       <div className="text-[10px] text-secondary-text truncate sm:text-xs">{formatHistoryDate(record.createdAt)}</div>
+                       <div className="text-[10px] text-accent-green mt-1 sm:text-xs">
+                         {topDetection ? Math.round(topDetection.confidence * 100) : 0}% 置信度
+                       </div>
+                       <div className="text-[10px] text-secondary-text truncate sm:text-xs">
+                         {formatCoordinates(record.lat, record.lon)} · {formatDuration(record.analysisDurationMs)}
+                       </div>
+                     </>
+                   ) : (
+                     <>
+                       <div className="flex items-center justify-between gap-3 mb-2">
+                         <div className="text-lg font-bold text-primary-text truncate sm:text-xl">{info.name}</div>
+                         <div className="text-[11px] text-secondary-text whitespace-nowrap sm:text-xs">
+                           {formatHistoryDate(record.createdAt)}
+                         </div>
+                       </div>
+                       <div className="text-xs italic text-secondary-text truncate mb-3 sm:text-sm">
+                         {topDetection?.scientific_name || '暂无识别结果'}
+                       </div>
+                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-secondary-text sm:text-xs">
+                         <span className="rounded-full bg-white/70 px-2.5 py-1 sm:px-3 sm:py-1.5">
+                           最高置信度 {topDetection ? Math.round(topDetection.confidence * 100) : 0}%
+                         </span>
+                         <span className="rounded-full bg-white/70 px-2.5 py-1 sm:px-3 sm:py-1.5">
+                           共 {record.detections.length} 项结果
+                         </span>
+                         <span className="rounded-full bg-white/70 px-2.5 py-1 sm:px-3 sm:py-1.5">
+                           {formatCoordinates(record.lat, record.lon)}
+                         </span>
+                         <span className="rounded-full bg-white/70 px-2.5 py-1 sm:px-3 sm:py-1.5">
+                           {formatDuration(record.analysisDurationMs)}
+                         </span>
+                       </div>
+                     </>
                   )}
                 </div>
               </div>
@@ -638,9 +638,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-start p-3 sm:p-4 md:justify-center md:p-8">
-      <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8 items-start lg:items-stretch justify-center">
-        <div className={`hidden lg:flex flex-col gap-6 flex-1 max-w-lg lg:min-h-[640px] lg:self-stretch ${state === 'result' ? '!flex' : ''}`}>
+    <div className="min-h-screen w-full overflow-x-hidden flex flex-col items-center justify-start p-3 sm:p-4 md:justify-center md:p-8">
+      <div className="w-full max-w-5xl min-w-0 flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8 items-start lg:items-stretch justify-center">
+        <div className="hidden min-w-0 flex-col gap-6 flex-1 max-w-lg lg:flex lg:min-h-[640px] lg:self-stretch">
           <div className="mb-4">
             {state === 'result' && (
               <button
@@ -730,8 +730,8 @@ export default function App() {
         </div>
 
         <div
-          className={`app-shell app-view glass-panel relative flex w-full max-w-none shrink-0 flex-col overflow-hidden rounded-[28px] px-4 py-4 shadow-2xl sm:max-w-[420px] sm:rounded-[34px] sm:p-6 lg:max-w-[360px] lg:rounded-[40px] lg:px-8 lg:py-8 ${
-            state === 'result' ? 'hidden lg:flex' : ''
+          className={`app-shell app-view glass-panel relative flex w-full max-w-full min-w-0 shrink-0 flex-col overflow-hidden rounded-[28px] px-4 py-4 shadow-2xl sm:max-w-[420px] sm:rounded-[34px] sm:p-6 lg:max-w-[360px] lg:rounded-[40px] lg:px-8 lg:py-8 ${
+            state === 'result' ? 'lg:hidden' : ''
           }`}
         >
           <div className="relative z-20 mb-6 flex items-center justify-between gap-3 sm:mb-8 lg:mb-10">
@@ -1007,7 +1007,7 @@ export default function App() {
                   key="result-mobile"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex min-h-0 flex-1 flex-col"
+                  className="flex min-h-0 min-w-0 flex-1 flex-col"
                 >
                   <div className="mb-4 flex items-center gap-2 sm:mb-5">
                     <button onClick={resetApp} className="rounded-lg bg-black/5 p-2 text-secondary-text">
@@ -1016,10 +1016,10 @@ export default function App() {
                     <span className="text-sm font-bold text-primary-text">识别结果</span>
                   </div>
 
-                  <div className="app-scroll-region flex-1 min-h-0 overflow-y-auto pr-0.5 space-y-3 sm:space-y-4">
+                  <div className="app-scroll-region flex-1 min-h-0 min-w-0 overflow-y-auto pr-0.5 space-y-3 sm:space-y-4">
                     {renderAnalysisDetails(true)}
                     {detections.length > 0 && (
-                      <div className="rounded-3xl border border-white/40 bg-white/60 p-4 sm:p-5">
+                      <div className="w-full min-w-0 rounded-3xl border border-white/40 bg-white/60 p-4 sm:p-5">
                       {(() => {
                         const topInfo = getDetectionDisplayInfo(detections[0]);
 
@@ -1028,11 +1028,11 @@ export default function App() {
                             <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-secondary-text/70 mb-3">
                               Top Match
                             </div>
-                            <div className="mb-4 flex gap-3 sm:gap-4">
+                            <div className="mb-4 flex min-w-0 gap-3 sm:gap-4">
                               <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-sm shrink-0">
                                 <img src={topInfo.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               </div>
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <div className="break-words font-bold text-primary-text">{topInfo.name}</div>
                                 <div className="break-all text-[10px] italic text-secondary-text">{topInfo.scientificName}</div>
                                 <div className="mt-2 text-xs font-bold text-accent-green">
