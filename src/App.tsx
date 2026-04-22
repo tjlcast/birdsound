@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Bird, Check, Clock3, History as HistoryIcon, Info, MapPin, Mic, RefreshCw, Settings, Share2, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Bird, Check, ChevronRight, Clock3, FlaskConical, History as HistoryIcon, Info, MapPin, Mic, RefreshCw, Server, Settings, Share2, Trash2, Upload } from 'lucide-react';
 import { BIRD_DATASET, DEFAULT_BIRD } from './constants/birds';
 import { analyzeBirdSound, buildApiBaseUrl, checkServerHealth, DEFAULT_API_HOST, DEFAULT_API_PORT } from './services/api';
 import { clearHistoryRecords, loadHistoryRecords, saveHistoryRecord } from './services/history';
@@ -8,7 +8,7 @@ import { AnalysisDetails, BirdDetection, HistoryRecord } from './types';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 
-type AppState = 'idle' | 'recording' | 'analyzing' | 'result' | 'history' | 'error';
+type AppState = 'idle' | 'recording' | 'analyzing' | 'result' | 'history' | 'service-config' | 'experiment-config' | 'error';
 type HealthStatus = 'healthy' | 'unhealthy';
 type ConnectionTestStatus = 'idle' | 'checking' | 'available' | 'unavailable';
 type BirdDisplayInfo = {
@@ -33,6 +33,7 @@ export default function App() {
   const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
   const [analysisDetails, setAnalysisDetails] = useState<AnalysisDetails | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const [apiHost, setApiHost] = useState(() => localStorage.getItem(API_HOST_STORAGE_KEY) || DEFAULT_API_HOST);
   const [apiPort, setApiPort] = useState(() => localStorage.getItem(API_PORT_STORAGE_KEY) || DEFAULT_API_PORT);
   const [draftApiHost, setDraftApiHost] = useState(apiHost);
@@ -48,8 +49,53 @@ export default function App() {
   const audioUrlRef = useRef<string | null>(null);
   const healthCheckInFlightRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const locationMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const apiBaseUrl = buildApiBaseUrl(apiHost, apiPort);
+
+  const showLocationMessage = (message: string) => {
+    setLocationMessage(message);
+
+    if (locationMessageTimerRef.current) {
+      clearTimeout(locationMessageTimerRef.current);
+    }
+
+    locationMessageTimerRef.current = setTimeout(() => {
+      setLocationMessage(null);
+      locationMessageTimerRef.current = null;
+    }, 2600);
+  };
+
+  const updateCurrentLocation = (shouldNotify = true) => {
+    if (!navigator.geolocation) {
+      if (shouldNotify) {
+        showLocationMessage('当前设备不支持定位。');
+      }
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const nextLocation = {
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+        };
+
+        setLocation(nextLocation);
+
+        if (shouldNotify) {
+          showLocationMessage(`当前位置已更新：${formatCoordinates(nextLocation.lat, nextLocation.lon)}`);
+        }
+      },
+      (error) => {
+        console.warn('Geolocation error:', error);
+
+        if (shouldNotify) {
+          showLocationMessage('无法更新位置，请检查定位权限。');
+        }
+      }
+    );
+  };
 
   useEffect(() => {
     const initStatusBar = async () => {
@@ -68,19 +114,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!navigator.geolocation) {
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-        });
-      },
-      (error) => console.warn('Geolocation error:', error)
-    );
+    updateCurrentLocation(false);
   }, []);
 
   useEffect(() => {
@@ -122,6 +156,9 @@ export default function App() {
       cleanupRecordingResources();
       cancelAnalyzeRequest();
       revokeAudioUrl(audioUrlRef.current);
+      if (locationMessageTimerRef.current) {
+        clearTimeout(locationMessageTimerRef.current);
+      }
     };
   }, []);
 
@@ -225,6 +262,7 @@ export default function App() {
     setErrorMessage(null);
     setRecordingTime(0);
     setAnalysisDetails(null);
+    setIsSettingsOpen(false);
   };
 
   const openHistoryPage = () => {
@@ -236,6 +274,7 @@ export default function App() {
     setRecordingTime(0);
     setAnalysisDetails(null);
     setHistoryRecords(loadHistoryRecords());
+    setIsSettingsOpen(false);
     setState('history');
   };
 
@@ -449,10 +488,21 @@ export default function App() {
   const healthStatusLabel = healthStatus === 'healthy' ? '服务正常' : '服务异常';
 
   const openSettings = () => {
+    setLocationMessage(null);
+    setIsSettingsOpen((prev) => !prev);
+  };
+
+  const openServiceConfig = () => {
     setDraftApiHost(apiHost);
     setDraftApiPort(apiPort);
     setConnectionTestStatus('idle');
-    setIsSettingsOpen((prev) => !prev);
+    setIsSettingsOpen(false);
+    setState('service-config');
+  };
+
+  const openExperimentConfig = () => {
+    setIsSettingsOpen(false);
+    setState('experiment-config');
   };
 
   const applySettings = (event: FormEvent<HTMLFormElement>) => {
@@ -466,6 +516,7 @@ export default function App() {
     setApiHost(nextHost);
     setApiPort(nextPort);
     setIsSettingsOpen(false);
+    setState('idle');
     setHealthStatus('unhealthy');
     setConnectionTestStatus('idle');
   };
@@ -679,6 +730,16 @@ export default function App() {
               </button>
             )}
 
+            {(state === 'service-config' || state === 'experiment-config') && (
+              <button
+                onClick={resetApp}
+                className="mb-4 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-secondary-text border border-glass-border shadow-sm"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                返回首页
+              </button>
+            )}
+
             {state === 'history' ? (
               <>
                 <h2 className="text-4xl font-bold text-accent-green mb-4 leading-tight">历史识别记录</h2>
@@ -697,6 +758,28 @@ export default function App() {
                     清空全部
                   </button>
                 </div>
+              </>
+            ) : state === 'service-config' ? (
+              <>
+                <h2 className="text-4xl font-bold text-accent-green mb-4 leading-tight">服务配置</h2>
+                <p className="text-secondary-text leading-relaxed">
+                  管理识别后端的 IP、端口与连接状态。保存后，后续录音和上传分析会使用新的服务地址。
+                </p>
+                <div className="flex gap-3 mt-6">
+                  <span className="px-4 py-2 bg-white rounded-xl text-xs font-semibold border border-glass-border shadow-sm">
+                    {apiHost}:{apiPort}
+                  </span>
+                  <span className="px-4 py-2 bg-white rounded-xl text-xs font-semibold border border-glass-border shadow-sm">
+                    {healthStatusLabel}
+                  </span>
+                </div>
+              </>
+            ) : state === 'experiment-config' ? (
+              <>
+                <h2 className="text-4xl font-bold text-accent-green mb-4 leading-tight">实验</h2>
+                <p className="text-secondary-text leading-relaxed">
+                  这里先预留给后续实验配置。
+                </p>
               </>
             ) : (
               <>
@@ -771,92 +854,78 @@ export default function App() {
               </button>
 
               {isSettingsOpen && (
-                <form
-                  onSubmit={applySettings}
-                  className="absolute inset-x-0 top-12 z-30 rounded-[28px] border border-glass-border bg-white/95 p-5 text-left shadow-2xl sm:inset-x-auto sm:right-0 sm:w-72 sm:rounded-3xl sm:p-4"
+                <div
+                  className="absolute inset-x-0 top-12 z-30 rounded-[28px] border border-glass-border bg-white/95 p-4 text-left shadow-2xl sm:inset-x-auto sm:right-0 sm:w-[19rem] sm:rounded-3xl"
                 >
-                  <div className="mb-4 flex items-start justify-between gap-3 sm:mb-3 sm:items-center">
+                  <div className="mb-3 flex items-center justify-between gap-3 px-1">
                     <div className="text-sm font-bold text-primary-text">设置</div>
-                    <div className="max-w-[9rem] text-right text-[10px] font-medium text-secondary-text sm:max-w-none">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <div className="flex items-center justify-end gap-1.5 text-[10px] font-medium text-secondary-text">
                       <span
                         className={`h-2.5 w-2.5 rounded-full ${
                           healthStatus === 'healthy' ? 'bg-emerald-500' : 'bg-red-500'
                         }`}
                       />
                       {healthStatusLabel}
-                      </div>
                     </div>
                   </div>
 
-                  <div className="mb-4 rounded-2xl bg-black/5 p-3.5 sm:mb-3 sm:p-3">
-                    <div className="mb-1 flex items-center gap-1.5 text-[10px] text-secondary-text">
-                      <MapPin className="h-3 w-3" />
-                      当前位置
-                    </div>
-                    <div className="break-all text-xs font-semibold text-primary-text">
-                      {formatCoordinates(location.lat, location.lon)}
-                    </div>
-                  </div>
-
-                  <label className="mb-3 block sm:mb-2">
-                    <span className="mb-1.5 block text-[10px] font-medium text-secondary-text">IP 地址</span>
-                    <input
-                      value={draftApiHost}
-                      onChange={(event) => {
-                        setDraftApiHost(event.target.value);
-                        setConnectionTestStatus('idle');
-                      }}
-                      className="h-11 w-full rounded-2xl border border-glass-border bg-white px-3.5 text-sm font-medium text-primary-text outline-none focus:border-accent-green sm:h-10 sm:px-3 sm:text-xs"
-                      placeholder={DEFAULT_API_HOST}
-                    />
-                  </label>
-
-                  <label className="mb-5 block sm:mb-4">
-                    <span className="mb-1.5 block text-[10px] font-medium text-secondary-text">端口</span>
-                    <input
-                      value={draftApiPort}
-                      onChange={(event) => {
-                        setDraftApiPort(event.target.value);
-                        setConnectionTestStatus('idle');
-                      }}
-                      className="h-11 w-full rounded-2xl border border-glass-border bg-white px-3.5 text-sm font-medium text-primary-text outline-none focus:border-accent-green sm:h-10 sm:px-3 sm:text-xs"
-                      inputMode="numeric"
-                      placeholder={DEFAULT_API_PORT}
-                    />
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={testConnection}
-                    disabled={connectionTestStatus === 'checking'}
-                    className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-glass-border bg-white py-3.5 text-sm font-bold text-primary-text shadow-sm transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-70 sm:py-3 sm:text-xs"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${connectionTestStatus === 'checking' ? 'animate-spin' : ''}`} />
-                    {connectionTestStatus === 'checking' ? '测试中' : '连接测试'}
-                  </button>
-
-                  {connectionTestStatus !== 'idle' && connectionTestStatus !== 'checking' && (
-                    <div
-                      className={`mb-3 rounded-2xl px-3 py-2 text-center text-xs font-bold ${
-                        connectionTestStatus === 'available'
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : 'bg-red-50 text-red-700'
-                      }`}
-                      role="status"
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => updateCurrentLocation()}
+                      className="flex w-full items-center gap-3 rounded-2xl bg-black/5 p-3 text-left transition-colors hover:bg-black/10"
                     >
-                      {connectionTestStatus === 'available' ? '服务可用' : '服务不可用'}
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-accent-green shadow-sm">
+                        <MapPin className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold text-primary-text">当前位置</span>
+                        <span className="mt-0.5 block break-all text-[11px] font-medium text-secondary-text">
+                          {formatCoordinates(location.lat, location.lon)}
+                        </span>
+                      </span>
+                      <RefreshCw className="h-3.5 w-3.5 shrink-0 text-secondary-text" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={openServiceConfig}
+                      className="flex w-full items-center gap-3 rounded-2xl bg-white/80 p-3 text-left transition-colors hover:bg-black/5"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5 text-primary-text">
+                        <Server className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold text-primary-text">服务配置</span>
+                        <span className="mt-0.5 block truncate text-[11px] font-medium text-secondary-text">
+                          {apiHost}:{apiPort}
+                        </span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-secondary-text" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={openExperimentConfig}
+                      className="flex w-full items-center gap-3 rounded-2xl bg-white/80 p-3 text-left transition-colors hover:bg-black/5"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5 text-primary-text">
+                        <FlaskConical className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold text-primary-text">实验</span>
+                        <span className="mt-0.5 block text-[11px] font-medium text-secondary-text">预留配置入口</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-secondary-text" />
+                    </button>
+                  </div>
+
+                  {locationMessage && (
+                    <div className="mt-3 rounded-2xl bg-accent-green/10 px-3 py-2 text-xs font-semibold text-accent-green" role="status">
+                      {locationMessage}
                     </div>
                   )}
-
-                  <button
-                    type="submit"
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-green py-3.5 text-sm font-bold text-white shadow-lg shadow-accent-green/20 sm:py-3 sm:text-xs"
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                    确定
-                  </button>
-                </form>
+                </div>
               )}
             </div>
           </div>
@@ -913,6 +982,118 @@ export default function App() {
                     <HistoryIcon className="w-3.5 h-3.5" />
                     查看历史记录
                   </button>
+                </motion.div>
+              )}
+
+              {state === 'service-config' && (
+                <motion.form
+                  key="service-config"
+                  onSubmit={applySettings}
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -16 }}
+                  className="app-scroll-region flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5"
+                >
+                  <div className="mb-5 flex items-center gap-2">
+                    <button type="button" onClick={resetApp} className="rounded-lg bg-black/5 p-2 text-secondary-text">
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-sm font-bold text-primary-text">服务配置</span>
+                  </div>
+
+                  <div className="mb-4 rounded-3xl border border-white/40 bg-white/60 p-4">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-xs font-bold text-primary-text">
+                        <Server className="h-4 w-4 text-accent-green" />
+                        后端服务
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[10px] font-medium text-secondary-text">
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${
+                            healthStatus === 'healthy' ? 'bg-emerald-500' : 'bg-red-500'
+                          }`}
+                        />
+                        {healthStatusLabel}
+                      </div>
+                    </div>
+                    <div className="break-all text-[11px] font-medium text-secondary-text">{apiBaseUrl}</div>
+                  </div>
+
+                  <label className="mb-3 block">
+                    <span className="mb-1.5 block text-[10px] font-medium text-secondary-text">IP 地址</span>
+                    <input
+                      value={draftApiHost}
+                      onChange={(event) => {
+                        setDraftApiHost(event.target.value);
+                        setConnectionTestStatus('idle');
+                      }}
+                      className="h-11 w-full rounded-2xl border border-glass-border bg-white px-3.5 text-sm font-medium text-primary-text outline-none focus:border-accent-green"
+                      placeholder={DEFAULT_API_HOST}
+                    />
+                  </label>
+
+                  <label className="mb-5 block">
+                    <span className="mb-1.5 block text-[10px] font-medium text-secondary-text">端口</span>
+                    <input
+                      value={draftApiPort}
+                      onChange={(event) => {
+                        setDraftApiPort(event.target.value);
+                        setConnectionTestStatus('idle');
+                      }}
+                      className="h-11 w-full rounded-2xl border border-glass-border bg-white px-3.5 text-sm font-medium text-primary-text outline-none focus:border-accent-green"
+                      inputMode="numeric"
+                      placeholder={DEFAULT_API_PORT}
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={testConnection}
+                    disabled={connectionTestStatus === 'checking'}
+                    className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-glass-border bg-white py-3.5 text-sm font-bold text-primary-text shadow-sm transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${connectionTestStatus === 'checking' ? 'animate-spin' : ''}`} />
+                    {connectionTestStatus === 'checking' ? '测试中' : '连接测试'}
+                  </button>
+
+                  {connectionTestStatus !== 'idle' && connectionTestStatus !== 'checking' && (
+                    <div
+                      className={`mb-3 rounded-2xl px-3 py-2 text-center text-xs font-bold ${
+                        connectionTestStatus === 'available'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-red-50 text-red-700'
+                      }`}
+                      role="status"
+                    >
+                      {connectionTestStatus === 'available' ? '服务可用' : '服务不可用'}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="mt-auto flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-green py-3.5 text-sm font-bold text-white shadow-lg shadow-accent-green/20"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    确定
+                  </button>
+                </motion.form>
+              )}
+
+              {state === 'experiment-config' && (
+                <motion.div
+                  key="experiment-config"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -16 }}
+                  className="flex min-h-0 flex-1 flex-col"
+                >
+                  <div className="mb-5 flex items-center gap-2">
+                    <button type="button" onClick={resetApp} className="rounded-lg bg-black/5 p-2 text-secondary-text">
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-sm font-bold text-primary-text">实验</span>
+                  </div>
+                  <div className="min-h-[12rem] flex-1 rounded-3xl border border-white/40 bg-white/45" />
                 </motion.div>
               )}
 
