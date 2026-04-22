@@ -6,19 +6,39 @@
 
 ## 目录
 
-- [核心功能](#核心功能)
-- [技术栈](#技术栈)
-- [项目结构](#项目结构)
-- [环境要求](#环境要求)
-- [快速开始](#快速开始)
-- [配置说明](#配置说明)
-- [后端接口约定](#后端接口约定)
-- [常用命令](#常用命令)
-- [Android 打包与调试](#android-打包与调试)
-- [数据与本地存储](#数据与本地存储)
-- [开发说明](#开发说明)
-- [排障指南](#排障指南)
-- [提交与 PR 规范](#提交与-pr-规范)
+- [闻啼鸟 BirdSound](#闻啼鸟-birdsound)
+  - [目录](#目录)
+  - [核心功能](#核心功能)
+  - [技术栈](#技术栈)
+  - [项目结构](#项目结构)
+  - [环境要求](#环境要求)
+  - [快速开始](#快速开始)
+  - [配置说明](#配置说明)
+    - [前端环境变量](#前端环境变量)
+    - [后端服务地址](#后端服务地址)
+  - [后端接口约定](#后端接口约定)
+    - [健康检查](#健康检查)
+    - [鸟声分析](#鸟声分析)
+  - [常用命令](#常用命令)
+  - [Android 打包与 APK](#android-打包与-apk)
+    - [生成 Debug APK](#生成-debug-apk)
+    - [生成 Release APK](#生成-release-apk)
+    - [生成签名 Release APK](#生成签名-release-apk)
+    - [运行到模拟器或真机](#运行到模拟器或真机)
+  - [数据与本地存储](#数据与本地存储)
+  - [开发说明](#开发说明)
+    - [代码风格](#代码风格)
+    - [主要文件](#主要文件)
+    - [手动验证清单](#手动验证清单)
+  - [排障指南](#排障指南)
+    - [页面显示“服务异常”](#页面显示服务异常)
+    - [录音不可用](#录音不可用)
+    - [定位不可用](#定位不可用)
+    - [上传后分析失败](#上传后分析失败)
+    - [Android 真机无法连接后端](#android-真机无法连接后端)
+  - [提交与 PR 规范](#提交与-pr-规范)
+  - [安全提示](#安全提示)
+  - [License](#license)
 
 ## 核心功能
 
@@ -273,7 +293,7 @@ npm run lint
 npm run build
 ```
 
-## Android 打包与调试
+## Android 打包与 APK
 
 本仓库已经包含 `android/` 原生工程和 `capacitor.config.ts`：
 
@@ -285,7 +305,9 @@ const config: CapacitorConfig = {
 };
 ```
 
-常见流程：
+### 生成 Debug APK
+
+适合本地测试、发给自己安装验证。
 
 1. 构建 Web 资源：
 
@@ -299,13 +321,91 @@ const config: CapacitorConfig = {
    npx cap sync android
    ```
 
-3. 打开 Android Studio：
+3. 使用 Gradle 打包 Debug APK：
+
+   ```bash
+   cd android
+   ./gradlew assembleDebug
+
+   # or 在Android Studio 中运行
+   # Build > Generate Signed Bundle / APK > Generate APKs
+   ```
+
+4. 打包完成后，APK 文件位于：
+
+   ```text
+   android/app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+5. 如果手机已开启 USB 调试并连接电脑，可以直接安装：
+
+   ```bash
+   adb install -r app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+### 生成 Release APK
+
+Release 包适合进一步测试或准备发布。未配置签名时，Gradle 可能只生成未签名或无法直接发布的产物。
+
+```bash
+npm run build
+npx cap sync android
+cd android
+./gradlew assembleRelease
+```
+
+常见输出路径：
+
+```text
+android/app/build/outputs/apk/release/app-release.apk
+```
+
+如果要提交到应用商店或正式分发，需要生成签名 Release 包，详见下一节。
+
+### 生成签名 Release APK
+
+正式发布 Android App 时必须签名。推荐使用 Android Studio 完成签名配置：
+
+1. 打开 Android 工程：
 
    ```bash
    npx cap open android
    ```
 
-4. 在 Android Studio 中选择模拟器或真机运行。
+2. 在 Android Studio 中选择 `Build > Generate Signed App Bundle / APK...`。
+3. 选择 `APK`。
+4. 新建或选择已有 keystore。
+5. 选择 `release` 构建类型。
+6. 完成向导后，Android Studio 会生成签名 APK。
+
+如果偏好命令行，可以先创建 keystore：
+
+```bash
+keytool -genkeypair -v \
+  -keystore release-key.jks \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000 \
+  -alias birdsound
+```
+
+然后在 Android Gradle 配置中添加 signingConfig。注意不要把 keystore、密码或真实签名配置提交到仓库。
+
+### 运行到模拟器或真机
+
+如果只是调试，不一定要手动找 APK。可以直接运行：
+
+```bash
+npm run build
+npx cap sync android
+npx cap run android
+```
+
+也可以打开 Android Studio 后点击 Run：
+
+```bash
+npx cap open android
+```
 
 注意事项：
 
