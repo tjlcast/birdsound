@@ -84,24 +84,29 @@
 }
 
 .app-shell {
-  min-height: calc(100vh - 1.5rem);
+  height: calc(100vh - 1.5rem);
+  max-height: calc(100vh - 1.5rem);
+  min-height: 0;
 }
 
 @supports (min-height: 100dvh) {
   .app-shell {
-    min-height: calc(100dvh - 1.5rem);
+    height: calc(100dvh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
   }
 }
 
 @media (min-width: 640px) {
   .app-shell {
-    min-height: calc(100dvh - 2rem);
+    height: calc(100dvh - 2rem);
+    max-height: calc(100dvh - 2rem);
   }
 }
 
 @media (min-width: 1024px) {
   .app-shell {
-    min-height: 640px;
+    height: min(640px, calc(100dvh - 4rem));
+    max-height: min(640px, calc(100dvh - 4rem));
   }
 }
 

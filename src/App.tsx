@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Bird, Check, ChevronRight, Clock3, FlaskConical, History as HistoryIcon, Info, MapPin, Mic, RefreshCw, Server, Settings, Share2, Trash2, Upload } from 'lucide-react';
+import { greet, processTransactions, type TransactionPayload, type TransactionSummary } from 'cljs-lib';
 import { BIRD_DATASET, DEFAULT_BIRD } from './constants/birds';
 import { analyzeBirdSound, buildApiBaseUrl, checkServerHealth, DEFAULT_API_HOST, DEFAULT_API_PORT } from './services/api';
 import { clearHistoryRecords, loadHistoryRecords, saveHistoryRecord } from './services/history';
@@ -21,6 +22,36 @@ type BirdDisplayInfo = {
 const API_HOST_STORAGE_KEY = 'birdsound_api_host';
 const API_PORT_STORAGE_KEY = 'birdsound_api_port';
 
+const EXPERIMENT_NAME = 'Ada';
+const EXPERIMENT_PAYLOAD: TransactionPayload = {
+  transactions: [
+    {
+      id: 'tx-1',
+      amount: '2500',
+      category: 'books',
+      status: 'disputed',
+      customerId: 'customer-1',
+      timestamp: '2026-04-21T00:00:00.000Z',
+    },
+    {
+      amount: 480,
+      category: 'coffee',
+      status: 'paid',
+      customerId: 'customer-1',
+      timestamp: '2026-04-22T08:30:00.000Z',
+    },
+    {
+      id: 'tx-3',
+      amount: 'bad-value',
+      status: 'failed',
+      timestamp: 'not-a-date',
+    },
+  ],
+  rules: {
+    highValueThreshold: 1000,
+  },
+};
+
 export default function App() {
   const [state, setState] = useState<AppState>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
@@ -39,6 +70,8 @@ export default function App() {
   const [draftApiHost, setDraftApiHost] = useState(apiHost);
   const [draftApiPort, setDraftApiPort] = useState(apiPort);
   const [connectionTestStatus, setConnectionTestStatus] = useState<ConnectionTestStatus>('idle');
+  const [experimentName, setExperimentName] = useState(EXPERIMENT_NAME);
+  const [draftExperimentName, setDraftExperimentName] = useState(EXPERIMENT_NAME);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -52,6 +85,17 @@ export default function App() {
   const locationMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const apiBaseUrl = buildApiBaseUrl(apiHost, apiPort);
+  const experimentResult = useMemo(() => {
+    const greeting = greet(experimentName);
+    const summary: TransactionSummary = processTransactions(EXPERIMENT_PAYLOAD);
+
+    return {
+      greeting,
+      summary,
+      inputJson: JSON.stringify(EXPERIMENT_PAYLOAD, null, 2),
+      outputJson: JSON.stringify(summary, null, 2),
+    };
+  }, [experimentName]);
 
   const showLocationMessage = (message: string) => {
     setLocationMessage(message);
@@ -505,6 +549,14 @@ export default function App() {
     setState('experiment-config');
   };
 
+  const applyExperimentGreet = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const nextName = draftExperimentName.trim() || EXPERIMENT_NAME;
+    setDraftExperimentName(nextName);
+    setExperimentName(nextName);
+  };
+
   const applySettings = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -705,10 +757,112 @@ export default function App() {
     );
   };
 
+  const renderExperimentPanel = (compact = false) => (
+    <div className={`app-scroll-region min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pr-0.5 ${compact ? 'space-y-3' : 'space-y-4'}`}>
+      <div className={`min-w-0 rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'p-5'}`}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-primary-text">
+            <FlaskConical className="h-4 w-4 text-accent-green" />
+            cljs-lib 调用
+          </div>
+          <span className="rounded-full bg-accent-green/10 px-2.5 py-1 text-[10px] font-bold text-accent-green">
+            ESM
+          </span>
+        </div>
+        <form onSubmit={applyExperimentGreet} className="rounded-2xl bg-white/75 p-3">
+          <label className="mb-2 block">
+            <span className="mb-1.5 block text-[10px] font-medium text-secondary-text">greet 输入</span>
+            <div className={`flex min-w-0 gap-2 ${compact ? 'flex-col' : 'flex-col sm:flex-row'}`}>
+              <input
+                value={draftExperimentName}
+                onChange={(event) => setDraftExperimentName(event.target.value)}
+                className="h-11 min-w-0 flex-1 rounded-2xl border border-glass-border bg-white px-3.5 text-sm font-medium text-primary-text outline-none focus:border-accent-green"
+                placeholder={EXPERIMENT_NAME}
+              />
+              <button
+                type="submit"
+                className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-accent-green px-4 text-sm font-bold text-white shadow-lg shadow-accent-green/20"
+              >
+                <Check className="h-3.5 w-3.5" />
+                调用 greet
+              </button>
+            </div>
+          </label>
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.18em] text-secondary-text/70">
+            greet("{experimentName}")
+          </div>
+          <div className="break-words text-sm font-bold text-primary-text">{experimentResult.greeting}</div>
+        </form>
+      </div>
+
+      <div className={`grid min-w-0 gap-3 ${compact ? 'grid-cols-2' : 'grid-cols-4'}`}>
+        <div className="rounded-2xl border border-white/40 bg-white/70 p-3">
+          <div className="text-[10px] text-secondary-text">总数</div>
+          <div className="text-xl font-bold text-primary-text">{experimentResult.summary.totalCount}</div>
+        </div>
+        <div className="rounded-2xl border border-white/40 bg-white/70 p-3">
+          <div className="text-[10px] text-secondary-text">有效</div>
+          <div className="text-xl font-bold text-primary-text">{experimentResult.summary.validCount}</div>
+        </div>
+        <div className="rounded-2xl border border-white/40 bg-white/70 p-3">
+          <div className="text-[10px] text-secondary-text">总金额</div>
+          <div className="text-xl font-bold text-primary-text">{experimentResult.summary.totalAmount}</div>
+        </div>
+        <div className="rounded-2xl border border-white/40 bg-white/70 p-3">
+          <div className="text-[10px] text-secondary-text">高风险</div>
+          <div className="text-xl font-bold text-primary-text">{experimentResult.summary.highValue.length}</div>
+        </div>
+      </div>
+
+      <div className={`min-w-0 rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'p-5'}`}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="text-xs font-bold text-primary-text">处理结果</div>
+          <span className="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-600">
+            {experimentResult.summary.processed[0]?.riskLevel ?? 'low'}
+          </span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl bg-white/75 p-3">
+            <div className="mb-1 text-[10px] text-secondary-text">最高风险交易</div>
+            <div className="text-sm font-bold text-primary-text">
+              {experimentResult.summary.processed[0]?.id ?? '暂无'}
+            </div>
+            <div className="mt-1 text-xs text-secondary-text">
+              riskScore {experimentResult.summary.processed[0]?.riskScore ?? 0}
+            </div>
+          </div>
+          <div className="rounded-2xl bg-white/75 p-3">
+            <div className="mb-1 text-[10px] text-secondary-text">无效交易</div>
+            <div className="text-sm font-bold text-primary-text">
+              {experimentResult.summary.invalidCount} 条
+            </div>
+            <div className="mt-1 truncate text-xs text-secondary-text">
+              {experimentResult.summary.invalid[0]?.errors.join(' / ') ?? '无'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={`min-w-0 rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'p-5'}`}>
+        <div className="mb-3 text-xs font-bold text-primary-text">示例输入（默认值）</div>
+        <pre className={`${compact ? 'max-h-48' : 'max-h-56'} max-w-full overflow-y-auto whitespace-pre-wrap break-words rounded-2xl bg-[#1f2933] p-3 text-[10px] leading-relaxed text-white/90`}>
+          {experimentResult.inputJson}
+        </pre>
+      </div>
+
+      <div className={`min-w-0 rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'p-5'}`}>
+        <div className="mb-3 text-xs font-bold text-primary-text">完整输出值</div>
+        <pre className={`${compact ? 'max-h-56' : 'max-h-72'} max-w-full overflow-y-auto whitespace-pre-wrap break-words rounded-2xl bg-[#1f2933] p-3 text-[10px] leading-relaxed text-white/90`}>
+          {experimentResult.outputJson}
+        </pre>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen w-full overflow-x-hidden flex flex-col items-center justify-start p-3 sm:p-4 md:justify-center md:p-8">
       <div className="w-full max-w-5xl min-w-0 flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8 items-start lg:items-stretch justify-center">
-        <div className="hidden min-w-0 flex-col gap-6 flex-1 max-w-lg lg:flex lg:min-h-[640px] lg:self-stretch">
+        <div className="hidden min-w-0 flex-col gap-6 flex-1 max-w-lg lg:flex lg:max-h-[min(640px,calc(100dvh-4rem))] lg:min-h-0 lg:self-stretch">
           <div className="mb-4">
             {state === 'result' && (
               <button
@@ -778,8 +932,16 @@ export default function App() {
               <>
                 <h2 className="text-4xl font-bold text-accent-green mb-4 leading-tight">实验</h2>
                 <p className="text-secondary-text leading-relaxed">
-                  这里先预留给后续实验配置。
+                  调用 cljs-lib 暴露的 greet 与 processTransactions，展示默认交易输入、汇总指标和完整输出值。
                 </p>
+                <div className="flex gap-3 mt-6">
+                  <span className="px-4 py-2 bg-white rounded-xl text-xs font-semibold border border-glass-border shadow-sm">
+                    {experimentResult.summary.validCount} 条有效
+                  </span>
+                  <span className="px-4 py-2 bg-white rounded-xl text-xs font-semibold border border-glass-border shadow-sm">
+                    {experimentResult.summary.invalidCount} 条无效
+                  </span>
+                </div>
               </>
             ) : (
               <>
@@ -825,6 +987,12 @@ export default function App() {
             <div className="space-y-4">
               {renderAnalysisDetails()}
               {renderResultList()}
+            </div>
+          )}
+
+          {state === 'experiment-config' && (
+            <div className="history-scroll glass-panel flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[32px] p-5 pr-3">
+              {renderExperimentPanel()}
             </div>
           )}
         </div>
@@ -914,7 +1082,7 @@ export default function App() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-bold text-primary-text">实验</span>
-                        <span className="mt-0.5 block text-[11px] font-medium text-secondary-text">预留配置入口</span>
+                        <span className="mt-0.5 block text-[11px] font-medium text-secondary-text">cljs-lib 调用示例</span>
                       </span>
                       <ChevronRight className="h-4 w-4 shrink-0 text-secondary-text" />
                     </button>
@@ -992,7 +1160,7 @@ export default function App() {
                   initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -16 }}
-                  className="app-scroll-region flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5"
+                  className="app-scroll-region flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pr-0.5"
                 >
                   <div className="mb-5 flex items-center gap-2">
                     <button type="button" onClick={resetApp} className="rounded-lg bg-black/5 p-2 text-secondary-text">
@@ -1085,7 +1253,7 @@ export default function App() {
                   initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -16 }}
-                  className="flex min-h-0 flex-1 flex-col"
+                  className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
                 >
                   <div className="mb-5 flex items-center gap-2">
                     <button type="button" onClick={resetApp} className="rounded-lg bg-black/5 p-2 text-secondary-text">
@@ -1093,7 +1261,7 @@ export default function App() {
                     </button>
                     <span className="text-sm font-bold text-primary-text">实验</span>
                   </div>
-                  <div className="min-h-[12rem] flex-1 rounded-3xl border border-white/40 bg-white/45" />
+                  {renderExperimentPanel(true)}
                 </motion.div>
               )}
 
