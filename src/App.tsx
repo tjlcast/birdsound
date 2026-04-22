@@ -10,6 +10,7 @@ import { Capacitor } from '@capacitor/core';
 
 type AppState = 'idle' | 'recording' | 'analyzing' | 'result' | 'history' | 'error';
 type HealthStatus = 'healthy' | 'unhealthy';
+type ConnectionTestStatus = 'idle' | 'checking' | 'available' | 'unavailable';
 type BirdDisplayInfo = {
   name: string;
   scientificName: string;
@@ -36,6 +37,7 @@ export default function App() {
   const [apiPort, setApiPort] = useState(() => localStorage.getItem(API_PORT_STORAGE_KEY) || DEFAULT_API_PORT);
   const [draftApiHost, setDraftApiHost] = useState(apiHost);
   const [draftApiPort, setDraftApiPort] = useState(apiPort);
+  const [connectionTestStatus, setConnectionTestStatus] = useState<ConnectionTestStatus>('idle');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -449,6 +451,7 @@ export default function App() {
   const openSettings = () => {
     setDraftApiHost(apiHost);
     setDraftApiPort(apiPort);
+    setConnectionTestStatus('idle');
     setIsSettingsOpen((prev) => !prev);
   };
 
@@ -464,6 +467,20 @@ export default function App() {
     setApiPort(nextPort);
     setIsSettingsOpen(false);
     setHealthStatus('unhealthy');
+    setConnectionTestStatus('idle');
+  };
+
+  const testConnection = async () => {
+    const testHost = draftApiHost.trim() || DEFAULT_API_HOST;
+    const testPort = draftApiPort.trim() || DEFAULT_API_PORT;
+    const testApiBaseUrl = buildApiBaseUrl(testHost, testPort);
+
+    setConnectionTestStatus('checking');
+
+    const isHealthy = await checkServerHealth(testApiBaseUrl);
+
+    setHealthStatus(isHealthy ? 'healthy' : 'unhealthy');
+    setConnectionTestStatus(isHealthy ? 'available' : 'unavailable');
   };
 
   const formatDuration = (durationMs: number) => {
@@ -786,7 +803,10 @@ export default function App() {
                     <span className="mb-1.5 block text-[10px] font-medium text-secondary-text">IP 地址</span>
                     <input
                       value={draftApiHost}
-                      onChange={(event) => setDraftApiHost(event.target.value)}
+                      onChange={(event) => {
+                        setDraftApiHost(event.target.value);
+                        setConnectionTestStatus('idle');
+                      }}
                       className="h-11 w-full rounded-2xl border border-glass-border bg-white px-3.5 text-sm font-medium text-primary-text outline-none focus:border-accent-green sm:h-10 sm:px-3 sm:text-xs"
                       placeholder={DEFAULT_API_HOST}
                     />
@@ -796,12 +816,38 @@ export default function App() {
                     <span className="mb-1.5 block text-[10px] font-medium text-secondary-text">端口</span>
                     <input
                       value={draftApiPort}
-                      onChange={(event) => setDraftApiPort(event.target.value)}
+                      onChange={(event) => {
+                        setDraftApiPort(event.target.value);
+                        setConnectionTestStatus('idle');
+                      }}
                       className="h-11 w-full rounded-2xl border border-glass-border bg-white px-3.5 text-sm font-medium text-primary-text outline-none focus:border-accent-green sm:h-10 sm:px-3 sm:text-xs"
                       inputMode="numeric"
                       placeholder={DEFAULT_API_PORT}
                     />
                   </label>
+
+                  <button
+                    type="button"
+                    onClick={testConnection}
+                    disabled={connectionTestStatus === 'checking'}
+                    className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-glass-border bg-white py-3.5 text-sm font-bold text-primary-text shadow-sm transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-70 sm:py-3 sm:text-xs"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${connectionTestStatus === 'checking' ? 'animate-spin' : ''}`} />
+                    {connectionTestStatus === 'checking' ? '测试中' : '连接测试'}
+                  </button>
+
+                  {connectionTestStatus !== 'idle' && connectionTestStatus !== 'checking' && (
+                    <div
+                      className={`mb-3 rounded-2xl px-3 py-2 text-center text-xs font-bold ${
+                        connectionTestStatus === 'available'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-red-50 text-red-700'
+                      }`}
+                      role="status"
+                    >
+                      {connectionTestStatus === 'available' ? '服务可用' : '服务不可用'}
+                    </div>
+                  )}
 
                   <button
                     type="submit"
