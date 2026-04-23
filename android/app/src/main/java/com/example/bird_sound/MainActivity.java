@@ -6,9 +6,16 @@ import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import com.example.bird_sound.localmodels.LocalModelPlugin;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(LocalModelPlugin.class);
+        super.onCreate(savedInstanceState);
+    }
+
     @Override
     public void onStart() {
         super.onStart();

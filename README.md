@@ -47,6 +47,7 @@
 - 地理位置辅助：读取浏览器定位，将经纬度随音频一起提交给分析服务。
 - 服务健康检查：定时请求后端 `/health`，在界面中显示服务可用状态。
 - 服务地址配置：可在界面中修改后端 IP 和端口，并保存到本地。
+- 端侧模型实验：Android App 的“设置 > 实验”页支持从手机文件导入本地模型，并预留语音转文字与大模型对话调用链路。
 - 鸟类识别结果展示：展示中文名、学名、图片、置信度和识别详情。
 - 本地历史记录：最近识别结果会保存到 `localStorage`，支持查看和清空。
 - 移动端适配：包含响应式 UI 和 Capacitor Android 项目。
@@ -61,6 +62,7 @@
 - [Lucide React](https://lucide.dev/)：图标。
 - [Axios](https://axios-http.com/)：HTTP 请求。
 - [Capacitor](https://capacitorjs.com/)：Android 原生壳。
+- Android Java + C++ JNI：端侧模型实验的插件、私有目录管理和 native runtime 桥接。
 
 ## 项目结构
 
@@ -86,6 +88,21 @@
 └── vite.config.ts           # Vite 配置
 ```
 
+端侧模型相关文件：
+
+```text
+android/app/src/main/java/com/example/bird_sound/localmodels/
+├── LocalModelPlugin.java        # Capacitor 插件：文件选择、私有目录、线程调度
+├── LocalModelNativeBridge.java  # Java/JNI 桥
+└── LocalModelDefinition.java    # 模型元数据
+
+android/app/src/main/cpp/
+├── CMakeLists.txt
+├── local_model_jni.cpp          # JNI 字符串、异常与方法桥接
+├── local_model_runtime.h        # native runtime 接口
+└── local_model_runtime.cpp      # llama.cpp / whisper.cpp 后端接入点
+```
+
 ## 环境要求
 
 推荐环境：
@@ -98,7 +115,7 @@
 Android 开发还需要：
 
 - Android Studio。
-- JDK 17 或 Android Studio 当前推荐的 JDK。
+- JDK 21，当前 Capacitor Android 配置使用 Java 21。
 - Android SDK、Gradle 和可用模拟器或真机。
 
 ## 快速开始
@@ -178,6 +195,39 @@ http://192.168.1.20:8000
 ```
 
 应用配置界面只需要填写主机和端口，不需要额外输入路径。
+
+### 端侧模型实验
+
+端侧模型入口位于 Android App 的“设置 > 实验”。该页面不修改原有 `/analyze` 鸟声识别功能；原识别流程仍然通过 `src/services/api.ts` 请求后端服务。
+
+实验页当前管理三类本地模型文件：
+
+| 用途 | 文件名 | 后端 |
+| --- | --- | --- |
+| 语音转文字 | `ggml-small.bin` | whisper.cpp |
+| 文本对话 | `qwen2-0_5b-instruct-q8_0.gguf` | llama.cpp |
+| 视觉语言实验 | `Qwen3VL-2B-Instruct-Q4_K_M.gguf` | llama.cpp / multimodal |
+
+模型导入流程：
+
+1. 点击实验页中的模型条目。
+2. Android 文件选择器从手机文件中选择对应模型。
+3. 插件复制模型到 App 私有目录：
+
+   ```text
+   /data/data/com.example.bird_sound/files/local-models/
+   ```
+
+4. JS 侧只读取模型状态，不直接管理真实路径；路径由 Android 层返回并维护。
+
+Native 推理接入点：
+
+- `android/app/src/main/cpp/local_model_runtime.cpp`
+  - `transcribeAudio(...)`：接入 whisper.cpp，读取 `ggml-small.bin` 和音频路径，返回转写文本。
+  - `runChat(...)`：接入 llama.cpp，读取 GGUF 模型路径和 prompt，返回模型回复。
+  - `resetSession(...)`：清理对应模型会话缓存。
+
+当前已从 `android/llama.zip` 接入 llama.cpp 文本 GGUF 后端，可用于 Qwen 文本对话；`Qwen3VL` 目前只走文本 prompt，图像输入仍需继续接入 multimodal projector 与图片预处理。whisper.cpp 后端尚未接入，语音转文字会继续返回未就绪状态。后续接入 whisper.cpp 时，应让 `getRuntimeStatus()` 按实际链接情况返回 `whisperReady`。
 
 ## 后端接口约定
 

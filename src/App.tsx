@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Bird, Check, ChevronRight, Clock3, FlaskConical, History as HistoryIcon, Info, MapPin, Mic, RefreshCw, Server, Settings, Share2, Trash2, Upload } from 'lucide-react';
-import { greet, processTransactions, type TransactionPayload, type TransactionSummary } from 'cljs-lib';
+import { ArrowLeft, Bird, Bot, Check, ChevronRight, Clock3, FileAudio, FlaskConical, FolderOpen, History as HistoryIcon, Info, Loader2, MapPin, Mic, RefreshCw, Server, Settings, Share2, Trash2, Upload } from 'lucide-react';
 import { BIRD_DATASET, DEFAULT_BIRD } from './constants/birds';
 import { analyzeBirdSound, buildApiBaseUrl, checkServerHealth, DEFAULT_API_HOST, DEFAULT_API_PORT } from './services/api';
 import { clearHistoryRecords, loadHistoryRecords, saveHistoryRecord } from './services/history';
+import { getLocalModelStatus, LOCAL_MODEL_SPECS, pickAndImportLocalModel, pickAndTranscribeAudio, resetLocalModelSession, runLocalModelChat, type LocalModelId, type LocalModelPluginStatus } from './services/localModels';
 import { AnalysisDetails, BirdDetection, HistoryRecord } from './types';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -21,36 +21,6 @@ type BirdDisplayInfo = {
 
 const API_HOST_STORAGE_KEY = 'birdsound_api_host';
 const API_PORT_STORAGE_KEY = 'birdsound_api_port';
-
-const EXPERIMENT_NAME = 'Ada';
-const EXPERIMENT_PAYLOAD: TransactionPayload = {
-  transactions: [
-    {
-      id: 'tx-1',
-      amount: '2500',
-      category: 'books',
-      status: 'disputed',
-      customerId: 'customer-1',
-      timestamp: '2026-04-21T00:00:00.000Z',
-    },
-    {
-      amount: 480,
-      category: 'coffee',
-      status: 'paid',
-      customerId: 'customer-1',
-      timestamp: '2026-04-22T08:30:00.000Z',
-    },
-    {
-      id: 'tx-3',
-      amount: 'bad-value',
-      status: 'failed',
-      timestamp: 'not-a-date',
-    },
-  ],
-  rules: {
-    highValueThreshold: 1000,
-  },
-};
 
 export default function App() {
   const [state, setState] = useState<AppState>('idle');
@@ -70,8 +40,14 @@ export default function App() {
   const [draftApiHost, setDraftApiHost] = useState(apiHost);
   const [draftApiPort, setDraftApiPort] = useState(apiPort);
   const [connectionTestStatus, setConnectionTestStatus] = useState<ConnectionTestStatus>('idle');
-  const [experimentName, setExperimentName] = useState(EXPERIMENT_NAME);
-  const [draftExperimentName, setDraftExperimentName] = useState(EXPERIMENT_NAME);
+  const [localModelStatus, setLocalModelStatus] = useState<LocalModelPluginStatus | null>(null);
+  const [localModelBusy, setLocalModelBusy] = useState<string | null>(null);
+  const [localModelMessage, setLocalModelMessage] = useState<string | null>(null);
+  const [localTranscript, setLocalTranscript] = useState('');
+  const [localTranscribePreprocessEnabled, setLocalTranscribePreprocessEnabled] = useState(true);
+  const [localPrompt, setLocalPrompt] = useState('');
+  const [localChatResponse, setLocalChatResponse] = useState('');
+  const [localChatModelId, setLocalChatModelId] = useState<Extract<LocalModelId, 'qwen2Chat' | 'qwen3Vision'>>('qwen2Chat');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -85,17 +61,6 @@ export default function App() {
   const locationMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const apiBaseUrl = buildApiBaseUrl(apiHost, apiPort);
-  const experimentResult = useMemo(() => {
-    const greeting = greet(experimentName);
-    const summary: TransactionSummary = processTransactions(EXPERIMENT_PAYLOAD);
-
-    return {
-      greeting,
-      summary,
-      inputJson: JSON.stringify(EXPERIMENT_PAYLOAD, null, 2),
-      outputJson: JSON.stringify(summary, null, 2),
-    };
-  }, [experimentName]);
 
   const showLocationMessage = (message: string) => {
     setLocationMessage(message);
@@ -160,6 +125,12 @@ export default function App() {
   useEffect(() => {
     updateCurrentLocation(false);
   }, []);
+
+  useEffect(() => {
+    if (state === 'experiment-config') {
+      refreshLocalModelStatus();
+    }
+  }, [state]);
 
   useEffect(() => {
     audioUrlRef.current = audioUrl;
@@ -549,12 +520,85 @@ export default function App() {
     setState('experiment-config');
   };
 
-  const applyExperimentGreet = (event: FormEvent<HTMLFormElement>) => {
+  const refreshLocalModelStatus = async () => {
+    try {
+      const status = await getLocalModelStatus();
+      setLocalModelStatus(status);
+      setLocalModelMessage(status.nativeReady ? null : status.nativeStatus || 'Android 插件已连接；native 推理库还未接入 llama.cpp / whisper.cpp。');
+    } catch (error) {
+      setLocalModelStatus(null);
+      setLocalModelMessage(error instanceof Error ? error.message : '无法读取端侧模型状态。');
+    }
+  };
+
+  const handleImportLocalModel = async (modelId: LocalModelId) => {
+    const spec = LOCAL_MODEL_SPECS.find((item) => item.id === modelId);
+    setLocalModelBusy(`import-${modelId}`);
+    setLocalModelMessage(`请选择 ${spec?.fileName ?? '模型文件'}。`);
+
+    try {
+      await pickAndImportLocalModel(modelId);
+      await refreshLocalModelStatus();
+      setLocalModelMessage(`${spec?.fileName ?? '模型'} 已导入到 App 私有目录。`);
+    } catch (error) {
+      setLocalModelMessage(error instanceof Error ? error.message : '模型导入失败。');
+    } finally {
+      setLocalModelBusy(null);
+    }
+  };
+
+  const handlePickAndTranscribe = async () => {
+    setLocalModelBusy('transcribe');
+    setLocalModelMessage(localTranscribePreprocessEnabled ? '请选择要转写的音频文件；将先经过 Android 预处理。' : '请选择要转写的音频文件；将直接交给 native whisper。');
+
+    try {
+      const result = await pickAndTranscribeAudio('zh', localTranscribePreprocessEnabled);
+      setLocalTranscript(result.text);
+      setLocalPrompt((prev) => prev || result.text);
+      setLocalModelMessage(localTranscribePreprocessEnabled ? '语音转文字完成（已使用 Android 预处理）。' : '语音转文字完成（已直接交给 native whisper）。');
+    } catch (error) {
+      setLocalModelMessage(error instanceof Error ? error.message : '语音转文字失败。');
+    } finally {
+      setLocalModelBusy(null);
+    }
+  };
+
+  const handleLocalChat = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const nextName = draftExperimentName.trim() || EXPERIMENT_NAME;
-    setDraftExperimentName(nextName);
-    setExperimentName(nextName);
+    const prompt = localPrompt.trim();
+    if (!prompt) {
+      setLocalModelMessage('请输入要发送给端侧大模型的内容。');
+      return;
+    }
+
+    setLocalModelBusy('chat');
+    setLocalChatResponse('');
+    setLocalModelMessage('正在调用端侧大模型。');
+
+    try {
+      const result = await runLocalModelChat(localChatModelId, prompt);
+      setLocalChatResponse(result.text);
+      setLocalModelMessage('端侧对话完成。');
+    } catch (error) {
+      setLocalModelMessage(error instanceof Error ? error.message : '端侧对话失败。');
+    } finally {
+      setLocalModelBusy(null);
+    }
+  };
+
+  const handleResetLocalSession = async () => {
+    setLocalModelBusy('reset-chat');
+
+    try {
+      await resetLocalModelSession(localChatModelId);
+      setLocalChatResponse('');
+      setLocalModelMessage('端侧会话已重置。');
+    } catch (error) {
+      setLocalModelMessage(error instanceof Error ? error.message : '会话重置失败。');
+    } finally {
+      setLocalModelBusy(null);
+    }
   };
 
   const applySettings = (event: FormEvent<HTMLFormElement>) => {
@@ -757,105 +801,176 @@ export default function App() {
     );
   };
 
+  const getLocalModel = (modelId: LocalModelId) => localModelStatus?.models.find((model) => model.id === modelId);
+  const importedModelCount = localModelStatus?.models.filter((model) => model.imported).length ?? 0;
+  const nativeStatusLabel = localModelStatus?.nativeReady ? 'Native 已就绪' : '等待 native 接入';
+  const isLocalModelActionBusy = (key: string) => localModelBusy === key;
+  const formatFileSize = (sizeBytes?: number) => {
+    if (!sizeBytes) {
+      return '未导入';
+    }
+
+    if (sizeBytes >= 1024 * 1024 * 1024) {
+      return `${(sizeBytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+    }
+
+    return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
   const renderExperimentPanel = (compact = false) => (
     <div className={`app-scroll-region min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pr-0.5 ${compact ? 'space-y-3' : 'space-y-4'}`}>
       <div className={`min-w-0 rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'p-5'}`}>
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs font-bold text-primary-text">
             <FlaskConical className="h-4 w-4 text-accent-green" />
-            cljs-lib 调用
+            端侧模型
           </div>
-          <span className="rounded-full bg-accent-green/10 px-2.5 py-1 text-[10px] font-bold text-accent-green">
-            ESM
-          </span>
-        </div>
-        <form onSubmit={applyExperimentGreet} className="rounded-2xl bg-white/75 p-3">
-          <label className="mb-2 block">
-            <span className="mb-1.5 block text-[10px] font-medium text-secondary-text">greet 输入</span>
-            <div className={`flex min-w-0 gap-2 ${compact ? 'flex-col' : 'flex-col sm:flex-row'}`}>
-              <input
-                value={draftExperimentName}
-                onChange={(event) => setDraftExperimentName(event.target.value)}
-                className="h-11 min-w-0 flex-1 rounded-2xl border border-glass-border bg-white px-3.5 text-sm font-medium text-primary-text outline-none focus:border-accent-green"
-                placeholder={EXPERIMENT_NAME}
-              />
-              <button
-                type="submit"
-                className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-accent-green px-4 text-sm font-bold text-white shadow-lg shadow-accent-green/20"
-              >
-                <Check className="h-3.5 w-3.5" />
-                调用 greet
-              </button>
-            </div>
-          </label>
-          <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.18em] text-secondary-text/70">
-            greet("{experimentName}")
-          </div>
-          <div className="break-words text-sm font-bold text-primary-text">{experimentResult.greeting}</div>
-        </form>
-      </div>
-
-      <div className={`grid min-w-0 gap-3 ${compact ? 'grid-cols-2' : 'grid-cols-4'}`}>
-        <div className="rounded-2xl border border-white/40 bg-white/70 p-3">
-          <div className="text-[10px] text-secondary-text">总数</div>
-          <div className="text-xl font-bold text-primary-text">{experimentResult.summary.totalCount}</div>
-        </div>
-        <div className="rounded-2xl border border-white/40 bg-white/70 p-3">
-          <div className="text-[10px] text-secondary-text">有效</div>
-          <div className="text-xl font-bold text-primary-text">{experimentResult.summary.validCount}</div>
-        </div>
-        <div className="rounded-2xl border border-white/40 bg-white/70 p-3">
-          <div className="text-[10px] text-secondary-text">总金额</div>
-          <div className="text-xl font-bold text-primary-text">{experimentResult.summary.totalAmount}</div>
-        </div>
-        <div className="rounded-2xl border border-white/40 bg-white/70 p-3">
-          <div className="text-[10px] text-secondary-text">高风险</div>
-          <div className="text-xl font-bold text-primary-text">{experimentResult.summary.highValue.length}</div>
-        </div>
-      </div>
-
-      <div className={`min-w-0 rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'p-5'}`}>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="text-xs font-bold text-primary-text">处理结果</div>
-          <span className="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-600">
-            {experimentResult.summary.processed[0]?.riskLevel ?? 'low'}
+          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${localModelStatus?.nativeReady ? 'bg-accent-green/10 text-accent-green' : 'bg-yellow-50 text-yellow-700'}`}>
+            {nativeStatusLabel}
           </span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-2xl bg-white/75 p-3">
-            <div className="mb-1 text-[10px] text-secondary-text">最高风险交易</div>
-            <div className="text-sm font-bold text-primary-text">
-              {experimentResult.summary.processed[0]?.id ?? '暂无'}
-            </div>
-            <div className="mt-1 text-xs text-secondary-text">
-              riskScore {experimentResult.summary.processed[0]?.riskScore ?? 0}
+            <div className="text-[10px] text-secondary-text">模型目录</div>
+            <div className="mt-1 break-all text-[11px] font-semibold text-primary-text">
+              {localModelStatus?.modelDirectory ?? '仅 Android App 可用'}
             </div>
           </div>
           <div className="rounded-2xl bg-white/75 p-3">
-            <div className="mb-1 text-[10px] text-secondary-text">无效交易</div>
-            <div className="text-sm font-bold text-primary-text">
-              {experimentResult.summary.invalidCount} 条
-            </div>
-            <div className="mt-1 truncate text-xs text-secondary-text">
-              {experimentResult.summary.invalid[0]?.errors.join(' / ') ?? '无'}
-            </div>
+            <div className="text-[10px] text-secondary-text">已导入</div>
+            <div className="mt-1 text-xl font-bold text-primary-text">{importedModelCount}/3</div>
           </div>
+        </div>
+        {localModelMessage && (
+          <div className="mt-3 rounded-2xl bg-accent-green/10 px-3 py-2 text-xs font-semibold text-accent-green" role="status">
+            {localModelMessage}
+          </div>
+        )}
+      </div>
+
+      <div className={`min-w-0 rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'p-5'}`}>
+        <div className="mb-3 text-xs font-bold text-primary-text">导入本地模型文件</div>
+        <div className="space-y-2">
+          {LOCAL_MODEL_SPECS.map((spec) => {
+            const status = getLocalModel(spec.id);
+            const busyKey = `import-${spec.id}`;
+            const isBusy = isLocalModelActionBusy(busyKey);
+
+            return (
+              <button
+                key={spec.id}
+                type="button"
+                onClick={() => handleImportLocalModel(spec.id)}
+                disabled={localModelBusy !== null}
+                className="flex min-h-16 w-full items-center gap-3 rounded-2xl bg-white/75 p-3 text-left transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/5 text-accent-green">
+                  {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-bold text-primary-text">{spec.label}</span>
+                  <span className="mt-0.5 block truncate text-[11px] font-medium text-secondary-text">{spec.fileName}</span>
+                  <span className="mt-0.5 block text-[10px] text-secondary-text">{status?.imported ? formatFileSize(status.sizeBytes) : spec.role}</span>
+                </span>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${status?.imported ? 'bg-accent-green/10 text-accent-green' : 'bg-black/5 text-secondary-text'}`}>
+                  {status?.imported ? '已导入' : '选择'}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className={`min-w-0 rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'p-5'}`}>
-        <div className="mb-3 text-xs font-bold text-primary-text">示例输入（默认值）</div>
-        <pre className={`${compact ? 'max-h-48' : 'max-h-56'} max-w-full overflow-y-auto whitespace-pre-wrap break-words rounded-2xl bg-[#1f2933] p-3 text-[10px] leading-relaxed text-white/90`}>
-          {experimentResult.inputJson}
-        </pre>
+        <div className="mb-3 flex items-center gap-2 text-xs font-bold text-primary-text">
+          <FileAudio className="h-4 w-4 text-accent-green" />
+          语音转文字
+        </div>
+        <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-2xl bg-white/75 p-3">
+          <input
+            type="checkbox"
+            checked={localTranscribePreprocessEnabled}
+            onChange={(event) => setLocalTranscribePreprocessEnabled(event.target.checked)}
+            disabled={localModelBusy !== null}
+            className="mt-0.5 h-4 w-4 rounded border-glass-border text-accent-green focus:ring-accent-green disabled:cursor-not-allowed"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-bold text-primary-text">先用 Android 预处理音频</span>
+            <span className="mt-1 block text-[11px] font-medium text-secondary-text">
+              开启后会先用 `MediaExtractor / MediaCodec` 解码并统一写成 mono WAV，更适合 `m4a` / `aac`。关闭后会把原音频直接交给 native whisper，失败错误也会直接返回。
+            </span>
+          </span>
+          <span className={`mt-0.5 shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${localTranscribePreprocessEnabled ? 'bg-accent-green/10 text-accent-green' : 'bg-black/5 text-secondary-text'}`}>
+            {localTranscribePreprocessEnabled ? '已开启' : '已关闭'}
+          </span>
+        </label>
+        <button
+          type="button"
+          onClick={handlePickAndTranscribe}
+          disabled={localModelBusy !== null}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-green py-3.5 text-sm font-bold text-white shadow-lg shadow-accent-green/20 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isLocalModelActionBusy('transcribe') ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          选择音频并转写
+        </button>
+        <textarea
+          value={localTranscript}
+          onChange={(event) => setLocalTranscript(event.target.value)}
+          className={`${compact ? 'min-h-24' : 'min-h-28'} w-full resize-none rounded-2xl border border-glass-border bg-white px-3.5 py-3 text-sm font-medium text-primary-text outline-none focus:border-accent-green`}
+          placeholder="转写文本会显示在这里，也可以手动编辑后发送给对话模型。"
+        />
       </div>
 
-      <div className={`min-w-0 rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'p-5'}`}>
-        <div className="mb-3 text-xs font-bold text-primary-text">完整输出值</div>
-        <pre className={`${compact ? 'max-h-56' : 'max-h-72'} max-w-full overflow-y-auto whitespace-pre-wrap break-words rounded-2xl bg-[#1f2933] p-3 text-[10px] leading-relaxed text-white/90`}>
-          {experimentResult.outputJson}
-        </pre>
-      </div>
+      <form onSubmit={handleLocalChat} className={`min-w-0 rounded-3xl border border-white/40 bg-white/60 ${compact ? 'p-4' : 'p-5'}`}>
+        <div className="mb-3 flex items-center gap-2 text-xs font-bold text-primary-text">
+          <Bot className="h-4 w-4 text-accent-green" />
+          大模型对话
+        </div>
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          {(['qwen2Chat', 'qwen3Vision'] as const).map((modelId) => (
+            <button
+              key={modelId}
+              type="button"
+              onClick={() => setLocalChatModelId(modelId)}
+              className={`rounded-2xl px-3 py-2.5 text-xs font-bold transition-colors ${
+                localChatModelId === modelId ? 'bg-accent-green text-white' : 'bg-white/75 text-secondary-text'
+              }`}
+            >
+              {modelId === 'qwen2Chat' ? 'Qwen2 0.5B' : 'Qwen3VL 2B'}
+            </button>
+          ))}
+        </div>
+        <textarea
+          value={localPrompt}
+          onChange={(event) => setLocalPrompt(event.target.value)}
+          className={`${compact ? 'min-h-28' : 'min-h-32'} mb-3 w-full resize-none rounded-2xl border border-glass-border bg-white px-3.5 py-3 text-sm font-medium text-primary-text outline-none focus:border-accent-green`}
+          placeholder="输入问题，或使用上面的语音转文字结果作为提示词。"
+        />
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <button
+            type="submit"
+            disabled={localModelBusy !== null}
+            className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-accent-green px-4 text-sm font-bold text-white shadow-lg shadow-accent-green/20 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isLocalModelActionBusy('chat') ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+            发送
+          </button>
+          <button
+            type="button"
+            onClick={handleResetLocalSession}
+            disabled={localModelBusy !== null}
+            className="flex min-h-11 items-center justify-center rounded-2xl border border-glass-border bg-white px-4 text-sm font-bold text-secondary-text disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
+        {localChatResponse && (
+          <div className="mt-3 rounded-2xl bg-white/75 p-3">
+            <div className="mb-1 text-[10px] text-secondary-text">模型回复</div>
+            <div className="whitespace-pre-wrap break-words text-sm font-medium text-primary-text">{localChatResponse}</div>
+          </div>
+        )}
+      </form>
     </div>
   );
 
@@ -932,14 +1047,14 @@ export default function App() {
               <>
                 <h2 className="text-4xl font-bold text-accent-green mb-4 leading-tight">实验</h2>
                 <p className="text-secondary-text leading-relaxed">
-                  调用 cljs-lib 暴露的 greet 与 processTransactions，展示默认交易输入、汇总指标和完整输出值。
+                  导入手机文件中的 GGUF / Whisper 模型，在 App 私有目录内完成语音转文字和端侧对话实验。
                 </p>
                 <div className="flex gap-3 mt-6">
                   <span className="px-4 py-2 bg-white rounded-xl text-xs font-semibold border border-glass-border shadow-sm">
-                    {experimentResult.summary.validCount} 条有效
+                    {importedModelCount}/3 模型
                   </span>
                   <span className="px-4 py-2 bg-white rounded-xl text-xs font-semibold border border-glass-border shadow-sm">
-                    {experimentResult.summary.invalidCount} 条无效
+                    {nativeStatusLabel}
                   </span>
                 </div>
               </>
@@ -1082,7 +1197,7 @@ export default function App() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-bold text-primary-text">实验</span>
-                        <span className="mt-0.5 block text-[11px] font-medium text-secondary-text">cljs-lib 调用示例</span>
+                        <span className="mt-0.5 block text-[11px] font-medium text-secondary-text">端侧模型调用</span>
                       </span>
                       <ChevronRight className="h-4 w-4 shrink-0 text-secondary-text" />
                     </button>
