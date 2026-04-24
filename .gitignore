@@ -47,5 +47,13 @@ android/app/src/main/res/xml/config.xml
 android/.idea/**
 
 
-# Third party plugins
-android/app/src/main/cpp/third_party/*
+# Third party native sources
+# Keep vendored source/config files in git and ignore only local build outputs.
+android/app/src/main/cpp/third_party/**/build/
+android/app/src/main/cpp/third_party/**/CMakeFiles/
+android/app/src/main/cpp/third_party/**/CMakeCache.txt
+android/app/src/main/cpp/third_party/**/cmake_install.cmake
+android/app/src/main/cpp/third_party/**/compile_commands.json
+android/app/src/main/cpp/third_party/**/.ninja_deps
+android/app/src/main/cpp/third_party/**/.ninja_log
+android/app/src/main/cpp/third_party/**/.cache/
