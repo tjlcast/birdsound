@@ -39,6 +39,8 @@ add_library(
 )
 
 #编译上面这些源文件时去哪找头文件
+#因为当使用 target_link_libraries(birdsound_local_models PRIVATE llama) 时，
+# CMake 会自动将 llama 目标的 include 目录添加到你的库的搜索路径中。
 target_include_directories(
     birdsound_local_models
     PRIVATE
